@@ -5,13 +5,7 @@ import type { Role, User } from "../types";
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
-  login: (
-    email: string,
-    token: string,
-    id: string,
-    name: string,
-    role: string,
-  ) => void;
+  login: (token: string, user: User) => void;
   logout: () => void;
 }
 
@@ -20,22 +14,11 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       user: null,
       isAuthenticated: false,
-      login: (
-        email: string,
-        token: string,
-        id: string,
-        name: string,
-        role: string,
-      ) => {
+      login: (token: string, user: User) => {
+        sessionStorage.setItem("token", token);
         return set({
           isAuthenticated: true,
-          user: {
-            id,
-            email,
-            name,
-            token,
-            role: role as Role,
-          },
+          user: user,
         });
       },
       logout: () => set({ user: null, isAuthenticated: false }),

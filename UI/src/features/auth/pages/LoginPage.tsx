@@ -20,18 +20,10 @@ export function LoginPage() {
 
     try {
       const response = await api.post("/auth/login", { email, password });
-      useAuthStore
-        .getState()
-        .login(
-          response.data.email,
-          response.data.token,
-          response.data.id,
-          response.data.name,
-          response.data.role,
-        );
+      useAuthStore.getState().login(response.data.token, response.data.user);
 
       showFeedback("Login realizado com sucesso!", "success");
-      navigate("/dashboard");
+      navigate("/");
     } catch (err) {
       showFeedback("Erro ao entrar: Verifique suas credenciais.", "error");
     } finally {
