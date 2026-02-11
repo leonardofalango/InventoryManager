@@ -7,6 +7,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { clsx } from "clsx";
+import { useAuthStore } from "../../store/authStore";
 
 const MENU_ITEMS = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -17,13 +18,16 @@ const MENU_ITEMS = [
 
 export function AppLayout() {
   const location = useLocation();
+  const user = useAuthStore((state) => state.user);
 
   return (
     <div className="flex h-screen bg-gray-900">
       {/* Sidebar */}
       <aside className="w-64 bg-primary text-white flex flex-col">
         <div className="p-6 border-b border-gray-700">
-          <h1 className="text-2xl font-bold tracking-tight">InventoryManager</h1>
+          <h1 className="text-2xl font-bold tracking-tight">
+            InventoryManager
+          </h1>
         </div>
 
         <nav className="flex-1 p-4 space-y-2">
@@ -58,10 +62,14 @@ export function AppLayout() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto">
-        <header className="bg-gray-700 shadow-sm h-20 flex items-center px-8 justify-between">
-          <h2 className="text-gray-500">
-            Bem vindo, <strong>Administrador</strong>
+      <main className="flex-1 overflow-auto py-2">
+        <header className="bg-gray-900 shadow-sm h-20 flex items-center px-8 justify-between">
+          <h2 className="text-white text-lg">
+            Bem vindo,{" "}
+            <strong className="text-accent">{user?.name || "Usuário"}</strong>
+            <p className="text-sm text-gray-500">
+              {user?.role === "ADMIN" ? "Administrador" : "Colaborador"}
+            </p>
           </h2>
         </header>
 

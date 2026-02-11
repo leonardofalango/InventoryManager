@@ -98,8 +98,7 @@ export function ProductUploadPage() {
           Importação de Produtos
         </h1>
         <p className="text-gray-400">
-          Faça upload da lista mestre de produtos (CSV) para iniciar o
-          inventário.
+          Faça upload da lista de produtos (CSV) para iniciar o inventário.
         </p>
       </div>
 
