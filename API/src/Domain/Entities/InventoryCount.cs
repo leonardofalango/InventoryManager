@@ -13,4 +13,5 @@ public class InventoryCount
 
     public Guid UserId { get; set; }
     public DateTime CountedAt { get; set; } = DateTime.UtcNow;
+    public int CountVersion { get; set; } = 1;
 }
