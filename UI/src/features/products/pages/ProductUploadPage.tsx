@@ -76,7 +76,7 @@ export function ProductUploadPage() {
     setIsUploading(true);
 
     try {
-      await api.post("/products/import", previewData);
+      await api.post("/import/products", previewData);
       setUploadStatus("success");
       setTimeout(() => {
         setFile(null);

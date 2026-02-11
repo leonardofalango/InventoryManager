@@ -26,8 +26,8 @@ public class UserController : ControllerBase
                 u.Name,
                 u.Email,
                 u.Role,
-                TeamName = u.Team != null ? u.Team.Name : "Sem Equipe",
-                u.TeamId
+                u.TeamId,
+                Team = u.Team
             })
             .ToListAsync();
 
@@ -55,6 +55,34 @@ public class UserController : ControllerBase
         await _context.SaveChangesAsync();
 
         return CreatedAtAction(nameof(GetUsers), new { id = user.Id }, user);
+    }
+
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateUser(Guid id, [FromBody] User user)
+    {
+        if (id != user.Id) return BadRequest("ID do usuário não corresponde.");
+
+        var existingUser = await _context.Users.FindAsync(id);
+        if (existingUser == null) return NotFound("Usuário não encontrado.");
+
+        existingUser.Name = user.Name;
+        existingUser.Role = user.Role;
+        existingUser.TeamId = user.TeamId;
+        Console.WriteLine($"TEAMID RECEBIDO: {user.TeamId}");
+
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            if (!_context.Users.Any(u => u.Id == id))
+                return NotFound();
+            else
+                throw;
+        }
+
+        return NoContent();
     }
 
     public class CreateUserRequest

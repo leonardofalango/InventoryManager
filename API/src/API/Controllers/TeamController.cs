@@ -29,6 +29,22 @@ public class TeamController : ControllerBase
         await _context.SaveChangesAsync();
         return CreatedAtAction(nameof(GetTeams), new { id = team.Id }, team);
     }
+
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateTeam(Guid id, [FromBody] Team team)
+    {
+        if (id != team.Id) return BadRequest();
+
+        var existingTeam = await _context.Teams.FindAsync(id);
+        if (existingTeam == null) return NotFound();
+
+        existingTeam.Name = team.Name;
+        existingTeam.Description = team.Description;
+
+        await _context.SaveChangesAsync();
+        return NoContent();
+    }
+
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteTeam(Guid id)
     {
