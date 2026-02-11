@@ -13,6 +13,8 @@ public class InventoryDbContext : DbContext
     public DbSet<Product> Products { get; set; }
     public DbSet<InventorySession> InventorySessions { get; set; }
     public DbSet<InventoryCount> InventoryCounts { get; set; }
+    public DbSet<Customer> Customers { get; set; }
+    public DbSet<ExpectedStock> ExpectedStocks { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
