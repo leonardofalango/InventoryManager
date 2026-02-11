@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace InventoryManager.Infrastructure.Migrations
 {
     [DbContext(typeof(InventoryDbContext))]
-    [Migration("20260211201842_InitialCreate")]
+    [Migration("20260211220724_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -25,11 +25,60 @@ namespace InventoryManager.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("InventoryManager.Domain.Entities.Customer", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Document")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Location")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Customers");
+                });
+
+            modelBuilder.Entity("InventoryManager.Domain.Entities.ExpectedStock", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Ean")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("ExpectedQuantity")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("InventorySessionId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InventorySessionId");
+
+                    b.ToTable("ExpectedStocks");
+                });
+
             modelBuilder.Entity("InventoryManager.Domain.Entities.InventoryCount", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<int>("CountVersion")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime>("CountedAt")
                         .HasColumnType("timestamp with time zone");
@@ -68,6 +117,9 @@ namespace InventoryManager.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<Guid?>("CustomerId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("EndDate")
                         .HasColumnType("timestamp with time zone");
 
@@ -78,6 +130,8 @@ namespace InventoryManager.Infrastructure.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CustomerId");
 
                     b.ToTable("InventorySessions");
                 });
@@ -114,6 +168,27 @@ namespace InventoryManager.Infrastructure.Migrations
                     b.ToTable("Products");
                 });
 
+            modelBuilder.Entity("InventoryManager.Domain.Entities.Team", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Teams");
+                });
+
             modelBuilder.Entity("InventoryManager.Domain.Entities.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -136,9 +211,25 @@ namespace InventoryManager.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<Guid?>("TeamId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
+                    b.HasIndex("TeamId");
+
                     b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("InventoryManager.Domain.Entities.ExpectedStock", b =>
+                {
+                    b.HasOne("InventoryManager.Domain.Entities.InventorySession", "InventorySession")
+                        .WithMany()
+                        .HasForeignKey("InventorySessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("InventorySession");
                 });
 
             modelBuilder.Entity("InventoryManager.Domain.Entities.InventoryCount", b =>
@@ -154,7 +245,34 @@ namespace InventoryManager.Infrastructure.Migrations
 
             modelBuilder.Entity("InventoryManager.Domain.Entities.InventorySession", b =>
                 {
+                    b.HasOne("InventoryManager.Domain.Entities.Customer", null)
+                        .WithMany("Sessions")
+                        .HasForeignKey("CustomerId");
+                });
+
+            modelBuilder.Entity("InventoryManager.Domain.Entities.User", b =>
+                {
+                    b.HasOne("InventoryManager.Domain.Entities.Team", "Team")
+                        .WithMany("Members")
+                        .HasForeignKey("TeamId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Team");
+                });
+
+            modelBuilder.Entity("InventoryManager.Domain.Entities.Customer", b =>
+                {
+                    b.Navigation("Sessions");
+                });
+
+            modelBuilder.Entity("InventoryManager.Domain.Entities.InventorySession", b =>
+                {
                     b.Navigation("Counts");
+                });
+
+            modelBuilder.Entity("InventoryManager.Domain.Entities.Team", b =>
+                {
+                    b.Navigation("Members");
                 });
 #pragma warning restore 612, 618
         }

@@ -7,10 +7,8 @@ public static class DbInitializer
 {
     public static void Initialize(InventoryDbContext context)
     {
-        // Garante que o banco existe
         context.Database.EnsureCreated();
 
-        // Se já tiver usuários, não faz nada
         if (context.Users.Any())
         {
             return;

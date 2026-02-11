@@ -1,11 +1,17 @@
 export type Role = "ADMIN" | "MANAGER" | "COUNTER";
 
+export interface Team {
+  id: string;
+  name: string;
+}
+
 export interface User {
   id: string;
   name: string;
   email: string;
   token: string;
   role: Role;
+  team: Team;
 }
 
 export interface Product {
