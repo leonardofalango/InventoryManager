@@ -107,9 +107,9 @@ export function ProductUploadPage() {
         className={clsx(
           "relative border-2 border-dashed rounded-xl p-12 text-center transition-all duration-200 ease-in-out",
           dragActive
-            ? "border-accent bg-blue-50"
-            : "border-gray-300 hover:border-gray-400 bg-gray-200",
-          uploadStatus === "success" && "border-green-500 bg-green-50",
+            ? "border-accent bg-blue-50/10"
+            : "border-gray-600 bg-gray-800/50 hover:border-gray-500",
+          uploadStatus === "success" && "border-green-500 bg-green-500/10",
         )}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
@@ -138,8 +138,8 @@ export function ProductUploadPage() {
           ) : file ? (
             <>
               <FileSpreadsheet className="w-16 h-16 text-accent mb-4" />
-              <h3 className="text-lg font-medium text-gray-900">{file.name}</h3>
-              <p className="text-sm text-gray-500 mb-4">
+              <h3 className="text-lg font-medium text-white">{file.name}</h3>
+              <p className="text-sm text-gray-400 mb-4">
                 {(file.size / 1024).toFixed(2)} KB
               </p>
               <button
@@ -148,7 +148,7 @@ export function ProductUploadPage() {
                   handleUpload();
                 }}
                 disabled={isUploading}
-                className="pointer-events-auto bg-primary text-gray-700 px-6 py-2 rounded-lg font-medium hover:bg-gray-900 transition-colors flex items-center gap-2"
+                className="pointer-events-auto bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
               >
                 {isUploading ? (
                   <Loader2 className="animate-spin" />
@@ -160,15 +160,12 @@ export function ProductUploadPage() {
             </>
           ) : (
             <>
-              <UploadCloud className="w-16 h-16 text-gray-700 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900">
+              <UploadCloud className="w-16 h-16 text-gray-500 mb-4" />
+              <h3 className="text-lg font-medium text-white">
                 Arraste seu arquivo CSV aqui
               </h3>
-              <p className="text-sm text-gray-500 mt-2">
+              <p className="text-sm text-gray-400 mt-2">
                 ou clique para selecionar do computador
-              </p>
-              <p className="text-xs text-gray-400 mt-4">
-                Formato aceito: .csv (UTF-8)
               </p>
             </>
           )}

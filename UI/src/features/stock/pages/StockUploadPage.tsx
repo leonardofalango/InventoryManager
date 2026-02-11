@@ -96,7 +96,7 @@ export function StockUploadPage() {
 
       <div
         className={clsx(
-          "relative border-2 border-dashed rounded-xl p-12 text-center transition-all",
+          "relative border-2 border-dashed rounded-xl p-12 text-center transition-all duration-200 ease-in-out",
           dragActive
             ? "border-accent bg-blue-50/10"
             : "border-gray-600 bg-gray-800/50 hover:border-gray-500",
@@ -119,10 +119,12 @@ export function StockUploadPage() {
           {uploadStatus === "success" ? (
             <>
               <CheckCircle className="w-16 h-16 text-green-500 mb-4" />
-              <h3 className="text-xl font-semibold text-green-500">
-                Stock Importado!
+              <h3 className="text-xl font-semibold text-green-700">
+                Importação Concluída!
               </h3>
-              <p className="text-gray-400">Redirecionando para a sessão...</p>
+              <p className="text-green-600">
+                O estoque foi salvo no banco de dados.
+              </p>
             </>
           ) : file ? (
             <>
@@ -151,10 +153,10 @@ export function StockUploadPage() {
             <>
               <UploadCloud className="w-16 h-16 text-gray-500 mb-4" />
               <h3 className="text-lg font-medium text-white">
-                Arraste o arquivo CSV do cliente
+                Arraste seu arquivo CSV aqui
               </h3>
               <p className="text-sm text-gray-400 mt-2">
-                Ou clique para navegar
+                ou clique para selecionar do computador
               </p>
             </>
           )}
