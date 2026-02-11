@@ -1,4 +1,4 @@
-import { Outlet, Link, useLocation } from "react-router-dom";
+import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   Package,
@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { clsx } from "clsx";
 import { useAuthStore } from "../../store/authStore";
+import { useFeedbackStore } from "../../store/feedbackStore";
 
 const MENU_ITEMS = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -17,8 +18,18 @@ const MENU_ITEMS = [
 ];
 
 export function AppLayout() {
-  const location = useLocation();
   const user = useAuthStore((state) => state.user);
+  const showFeedback = useFeedbackStore((state) => state.showFeedback);
+  const logout = useAuthStore((state) => state.logout);
+  const navigate = useNavigate();
+
+  const location = useLocation();
+
+  const handleLogOut = () => {
+    logout();
+    showFeedback("Logout realizado com sucesso!", "success");
+    navigate("/login");
+  };
 
   return (
     <div className="flex h-screen bg-gray-900">
@@ -54,7 +65,10 @@ export function AppLayout() {
         </nav>
 
         <div className="p-4 border-t border-gray-700">
-          <button className="flex items-center gap-3 px-4 py-3 text-red-400 hover:text-red-300 w-full">
+          <button
+            onClick={handleLogOut}
+            className="flex items-center gap-3 px-4 py-3 text-red-400 hover:text-red-300 w-full"
+          >
             <LogOut size={20} />
             <span>Sair</span>
           </button>

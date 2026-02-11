@@ -2,21 +2,41 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../../../store/authStore";
 import { Lock, Mail, Loader2 } from "lucide-react";
+import { api } from "../../../lib/axios";
+import { useFeedbackStore } from "../../../store/feedbackStore";
 
 export function LoginPage() {
-  const navigate = useNavigate();
+  const showFeedback = useFeedbackStore((state) => state.showFeedback);
   const login = useAuthStore((state) => state.login);
-  const [loading, SvLoading] = useState(false);
-  const [email, setEmail] = useState("");
+  const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    SvLoading(true);
-    setTimeout(() => {
-      login(email);
-      SvLoading(false);
-      navigate("/");
-    }, 1000);
+    setLoading(true);
+
+    try {
+      const response = await api.post("/auth/login", { email, password });
+      useAuthStore
+        .getState()
+        .login(
+          response.data.email,
+          response.data.token,
+          response.data.id,
+          response.data.name,
+          response.data.role,
+        );
+
+      showFeedback("Login realizado com sucesso!", "success");
+      navigate("/dashboard");
+    } catch (err) {
+      showFeedback("Erro ao entrar: Verifique suas credenciais.", "error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -29,7 +49,7 @@ export function LoginPage() {
           <p className="text-gray-400">Acesse para gerenciar inventários</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleLogin} className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Email
@@ -62,6 +82,8 @@ export function LoginPage() {
               <input
                 type="password"
                 required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 className="w-full bg-gray-700 border border-gray-600 rounded-lg py-3 pl-10 px-4 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent"
                 placeholder="••••••••"
               />

@@ -10,6 +10,7 @@ import {
 import { PreviewTable } from "../components/PreviewTable";
 import type { ProductCsvRow } from "../types/product-types";
 import { clsx } from "clsx";
+import { api } from "../../../lib/axios";
 
 export function ProductUploadPage() {
   const [dragActive, setDragActive] = useState(false);
@@ -70,25 +71,24 @@ export function ProductUploadPage() {
     }
   };
 
-  // Simulação de Envio para API
   const handleUpload = async () => {
-    if (!file) return;
+    if (!file || previewData.length === 0) return;
     setIsUploading(true);
 
-    // TODO: backend call
-    // const formData = new FormData();
-    // formData.append('file', file);
-    // await api.post('/products/import', formData);
-
-    setTimeout(() => {
-      setIsUploading(false);
+    try {
+      await api.post("/products/import", previewData);
       setUploadStatus("success");
       setTimeout(() => {
         setFile(null);
         setPreviewData([]);
         setUploadStatus("idle");
       }, 3000);
-    }, 2000);
+    } catch (error) {
+      console.error("Erro ao importar produtos:", error);
+      setUploadStatus("error");
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   return (
