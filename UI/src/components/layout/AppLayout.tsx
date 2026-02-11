@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   Package,
   Users,
+  CirclePile,
   ClipboardList,
   LogOut,
 } from "lucide-react";
@@ -13,6 +14,7 @@ import { useFeedbackStore } from "../../store/feedbackStore";
 const MENU_ITEMS = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
   { path: "/inventory", label: "Inventários", icon: ClipboardList },
+  { path: "/stock", label: "Estoque", icon: CirclePile },
   { path: "/products", label: "Produtos", icon: Package },
   { path: "/team", label: "Equipe", icon: Users },
 ];

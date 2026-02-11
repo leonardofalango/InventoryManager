@@ -7,6 +7,7 @@ import { InventoryListPage } from "../features/inventory/pages/InventoryListPage
 import { TeamPage } from "../features/team/pages/TeamPage";
 import { useAuthStore } from "../store/authStore";
 import type { JSX } from "react";
+import { StockUploadPage } from "../features/stock/pages/StockUploadPage";
 
 const PrivateRoute = ({ children }: { children: JSX.Element }) => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -26,6 +27,7 @@ export const router = createBrowserRouter([
       { path: "/inventory", element: <InventoryListPage /> },
       { path: "/products", element: <ProductUploadPage /> },
       { path: "/team", element: <TeamPage /> },
+      { path: "/stock/", element: <StockUploadPage /> },
     ],
   },
   {
