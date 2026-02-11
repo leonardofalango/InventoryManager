@@ -1,0 +1,75 @@
+import { Outlet, Link, useLocation } from "react-router-dom";
+import {
+  LayoutDashboard,
+  Package,
+  Users,
+  ClipboardList,
+  LogOut,
+} from "lucide-react";
+import { clsx } from "clsx";
+
+const MENU_ITEMS = [
+  { path: "/", label: "Dashboard", icon: LayoutDashboard },
+  { path: "/inventory", label: "Inventários", icon: ClipboardList },
+  { path: "/products", label: "Produtos", icon: Package },
+  { path: "/team", label: "Equipe", icon: Users },
+];
+
+export function AppLayout() {
+  const location = useLocation();
+
+  return (
+    <div className="flex h-screen bg-gray-900">
+      {/* Sidebar */}
+      <aside className="w-64 bg-primary text-white flex flex-col">
+        <div className="p-6 border-b border-gray-700">
+          <h1 className="text-2xl font-bold tracking-tight">InventoryManager</h1>
+        </div>
+
+        <nav className="flex-1 p-4 space-y-2">
+          {MENU_ITEMS.map((item) => {
+            const Icon = item.icon;
+            const isActive = location.pathname === item.path;
+
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={clsx(
+                  "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors",
+                  isActive
+                    ? "bg-accent text-white"
+                    : "text-gray-400 hover:bg-gray-800 hover:text-white",
+                )}
+              >
+                <Icon size={20} />
+                <span className="font-medium">{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div className="p-4 border-t border-gray-700">
+          <button className="flex items-center gap-3 px-4 py-3 text-red-400 hover:text-red-300 w-full">
+            <LogOut size={20} />
+            <span>Sair</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 overflow-auto">
+        <header className="bg-gray-700 shadow-sm h-20 flex items-center px-8 justify-between">
+          <h2 className="text-gray-500">
+            Bem vindo, <strong>Administrador</strong>
+          </h2>
+        </header>
+
+        <div className="p-8">
+          {/* Render */}
+          <Outlet />
+        </div>
+      </main>
+    </div>
+  );
+}
