@@ -44,7 +44,7 @@ public class AuthController : ControllerBase
                 id = user.Id,
                 name = user.Name,
                 email = user.Email,
-                role = user.Role
+                role = user.Role.ToUpper()
             }
         });
     }
@@ -62,7 +62,7 @@ public class AuthController : ControllerBase
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Name, user.Name),
                 new Claim(ClaimTypes.Email, user.Email),
-                new Claim(ClaimTypes.Role, user.Role.ToString())
+                new Claim(ClaimTypes.Role, user.Role.ToString().ToUpper())
             ]),
             Expires = DateTime.UtcNow.AddHours(8),
             SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature),

@@ -1,10 +1,12 @@
 using InventoryManager.Domain.Entities;
 using InventoryManager.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize(Roles = "ADMIN,MANAGER")]
 public class InventoryController : ControllerBase
 {
     private readonly InventoryDbContext _context;
@@ -17,7 +19,6 @@ public class InventoryController : ControllerBase
         if (session == null || session.Status == InventoryStatus.Closed)
             return BadRequest("Sessão de inventário inválida ou encerrada.");
 
-        // verificar se ja possui uma contagem, se possuir, incrementar a versão
         var existingCount = await _context.InventoryCounts
             .Where(c => c.InventorySessionId == count.InventorySessionId && c.Ean == count.Ean)
             .OrderByDescending(c => c.CountVersion)

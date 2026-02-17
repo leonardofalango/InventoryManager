@@ -1,9 +1,11 @@
 using InventoryManager.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize(Roles = "ADMIN,MANAGER")]
 public class ExportController : ControllerBase
 {
     private readonly InventoryDbContext DbContext;

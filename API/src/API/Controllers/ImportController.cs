@@ -1,5 +1,6 @@
 using InventoryManager.Domain.Entities;
 using InventoryManager.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -7,6 +8,7 @@ namespace InventoryManager.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize(Roles = "ADMIN,MANAGER")]
 public class ImportController : ControllerBase
 {
     private readonly InventoryDbContext _context;
