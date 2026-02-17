@@ -112,11 +112,11 @@ export function ScanPage() {
 
   return (
     <div className="max-w-md mx-auto h-full flex flex-col gap-4">
-      <div className="bg-accent/20 border border-accent/50 p-3 rounded-lg text-center">
-        <p className="text-accent text-sm font-bold uppercase tracking-wider">
+      <div className="bg-accent/20 border border-accent/50 p-3 rounded-lg text-center border-gray-500">
+        <p className="text-accent text-white text-sm font-bold uppercase tracking-wider">
           Inventário Ativo
         </p>
-        <p className="text-white font-semibold text-lg">
+        <p className="text-green-300 font-semibold text-lg">
           {activeSession.clientName}
         </p>
       </div>
