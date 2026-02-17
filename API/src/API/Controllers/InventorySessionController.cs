@@ -18,10 +18,17 @@ public class InventorySessionController : ControllerBase
 
     [HttpPost]
     [Authorize(Roles = "ADMIN,MANAGER")]
-    public async Task<ActionResult<InventorySession>> CreateSession([FromBody] InventorySession session)
+    public async Task<ActionResult<InventorySession>> CreateSession([FromBody] CreateSessionRequest request)
     {
-        session.StartDate = DateTime.UtcNow;
-        session.Status = InventoryStatus.Open;
+        var session = new InventorySession
+        {
+            ClientName = request.ClientName,
+            StartDate = request.StartDate.ToUniversalTime(),
+            TeamId = request.TeamId,
+            EndDate = request.EndDate?.ToUniversalTime(),
+            Status = InventoryStatus.Open,
+        };
+
         _context.InventorySessions.Add(session);
         await _context.SaveChangesAsync();
         return Ok(session);
@@ -127,6 +134,68 @@ public class InventorySessionController : ControllerBase
             status = activeSession.Status
         });
     }
+
+    [HttpGet]
+    [Authorize(Roles = "ADMIN,MANAGER")]
+    public async Task<IActionResult> GetAllSessions()
+    {
+        var sessions = await _context.InventorySessions
+            .Include(s => s.Counts)
+            .OrderByDescending(s => s.StartDate)
+            .Select(s => new
+            {
+                s.Id,
+                s.ClientName,
+                s.Status,
+                s.StartDate,
+                s.EndDate,
+                s.TeamId,
+                TotalItemsCounted = s.Counts.Sum(c => c.Quantity),
+                UniqueItemsCounted = s.Counts.Select(c => c.Ean).Distinct().Count()
+            })
+            .ToListAsync();
+
+        return Ok(sessions);
+    }
+
+    [HttpPut("{id}/status")]
+    [Authorize(Roles = "ADMIN,MANAGER")]
+    public async Task<IActionResult> UpdateSessionStatus(Guid id, [FromBody] UpdateStatusRequest request)
+    {
+        var session = await _context.InventorySessions.FindAsync(id);
+
+        if (session == null)
+            return NotFound(new { message = "Sessão de inventário não encontrada." });
+
+        session.Status = request.Status;
+        if (request.Status == InventoryStatus.Closed)
+        {
+            session.EndDate = DateTime.UtcNow;
+        }
+
+        await _context.SaveChangesAsync();
+
+        return Ok(new { message = "Status atualizado com sucesso.", status = session.Status });
+    }
+
+    [HttpPut("{id}")]
+    [Authorize(Roles = "ADMIN,MANAGER")]
+    public async Task<IActionResult> UpdateSessionDetails(Guid id, [FromBody] UpdateSessionRequest request)
+    {
+        var session = await _context.InventorySessions.FindAsync(id);
+
+        if (session == null)
+            return NotFound(new { message = "Sessão de inventário não encontrada." });
+
+        session.ClientName = request.ClientName;
+        session.TeamId = request.TeamId;
+        session.StartDate = request.StartDate == default ? session.StartDate : request.StartDate.ToUniversalTime();
+        session.EndDate = request.EndDate?.ToUniversalTime();
+
+        await _context.SaveChangesAsync();
+
+        return Ok(new { message = "Inventário atualizado com sucesso." });
+    }
 }
 
 public class RegisterCountRequest
@@ -135,4 +204,25 @@ public class RegisterCountRequest
     public string ShelfId { get; set; } = string.Empty;
     public int Quantity { get; set; } = 1;
     public int CountVersion { get; set; } = 1;
+}
+
+public class UpdateStatusRequest
+{
+    public InventoryStatus Status { get; set; }
+}
+
+public class CreateSessionRequest
+{
+    public string ClientName { get; set; } = string.Empty;
+    public DateTime StartDate { get; set; }
+    public DateTime? EndDate { get; set; }
+    public Guid? TeamId { get; set; }
+}
+
+public class UpdateSessionRequest
+{
+    public string ClientName { get; set; } = string.Empty;
+    public Guid? TeamId { get; set; }
+    public DateTime StartDate { get; set; }
+    public DateTime? EndDate { get; set; }
 }
