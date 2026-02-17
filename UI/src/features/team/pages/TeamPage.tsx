@@ -209,7 +209,11 @@ export function TeamPage() {
                         {member.team ? member.team.name : "Sem Time"}
                       </p>
                       <span className="text-xs bg-gray-900 px-2 py-1 rounded text-gray-500 mt-1 inline-block border border-gray-700">
-                        {member.role === "MANAGER" ? "Gerente" : "Contador"}
+                        {member.role === "MANAGER"
+                          ? "Gerente"
+                          : member.role === "COUNTER"
+                            ? "Contador"
+                            : member.role}
                       </span>
                     </div>
                   </div>

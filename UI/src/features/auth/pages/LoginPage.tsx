@@ -7,7 +7,6 @@ import { useFeedbackStore } from "../../../store/feedbackStore";
 
 export function LoginPage() {
   const showFeedback = useFeedbackStore((state) => state.showFeedback);
-  const login = useAuthStore((state) => state.login);
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(false);
