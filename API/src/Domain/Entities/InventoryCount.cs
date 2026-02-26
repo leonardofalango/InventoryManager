@@ -9,7 +9,8 @@ public class InventoryCount
 
     public string Ean { get; set; } = string.Empty;
     public int Quantity { get; set; }
-    public string ShelfId { get; set; } = string.Empty;
+    public Guid? ProductLocationId { get; set; }
+    public ProductLocation? ProductLocation { get; set; }
 
     public Guid UserId { get; set; }
     public DateTime CountedAt { get; set; } = DateTime.UtcNow;
