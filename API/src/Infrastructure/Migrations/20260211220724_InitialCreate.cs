@@ -126,7 +126,7 @@ namespace InventoryManager.Infrastructure.Migrations
                     InventorySessionId = table.Column<Guid>(type: "uuid", nullable: false),
                     Ean = table.Column<string>(type: "text", nullable: false),
                     Quantity = table.Column<int>(type: "integer", nullable: false),
-                    ShelfId = table.Column<string>(type: "text", nullable: false),
+                    ProductLocationId = table.Column<Guid>(type: "uuid", nullable: false),
                     UserId = table.Column<Guid>(type: "uuid", nullable: false),
                     CountedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     CountVersion = table.Column<int>(type: "integer", nullable: false)

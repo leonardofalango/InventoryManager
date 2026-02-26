@@ -22,7 +22,7 @@ public class ExportController : ControllerBase
             .Where(c => c.InventorySessionId == sessionId)
             .Select(c => new
             {
-                c.ShelfId,
+                c.ProductLocationId,
                 c.Ean,
                 c.Quantity,
                 c.CountedAt,

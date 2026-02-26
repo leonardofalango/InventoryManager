@@ -16,6 +16,91 @@ public class InventorySessionController : ControllerBase
 
     public InventorySessionController(InventoryDbContext context) => _context = context;
 
+    [HttpGet("{id}/dashboard")]
+    [Authorize(Roles = "ADMIN,MANAGER,COUNTER")]
+    public async Task<IActionResult> GetDashboardStats(Guid id)
+    {
+        var session = await _context.InventorySessions
+            .Include(s => s.Counts)
+            .FirstOrDefaultAsync(s => s.Id == id);
+
+        if (session == null)
+            return NotFound(new { message = "Sessão não encontrada." });
+
+        var expectedStocks = await _context.ExpectedStocks
+            .Where(e => e.InventorySessionId == id)
+            .ToListAsync();
+
+        var totalSKUs = expectedStocks.Count;
+
+        if (totalSKUs == 0) totalSKUs = await _context.Products.CountAsync();
+
+        var countedSKUs = session.Counts.Select(c => c.Ean).Distinct().Count();
+        var totalItems = session.Counts.Sum(c => c.Quantity);
+
+        var countedPerEan = session.Counts
+            .GroupBy(c => c.Ean)
+            .Select(g => new { Ean = g.Key, TotalCount = g.Sum(c => c.Quantity) })
+            .ToList();
+
+        int divergences = 0;
+
+        if (expectedStocks.Any())
+        {
+            foreach (var counted in countedPerEan)
+            {
+                var expected = expectedStocks.FirstOrDefault(e => e.Ean == counted.Ean)?.ExpectedQuantity ?? 0;
+                if (expected != counted.TotalCount) divergences++;
+            }
+        }
+        else
+        {
+            var eans = countedPerEan.Select(c => c.Ean).ToList();
+            var products = await _context.Products.Where(p => eans.Contains(p.Ean)).ToListAsync();
+            foreach (var counted in countedPerEan)
+            {
+                var expected = products.FirstOrDefault(p => p.Ean == counted.Ean)?.StockQuantity ?? 0;
+                if (expected != counted.TotalCount) divergences++;
+            }
+        }
+
+        var activeCounters = session.Counts
+            .Where(c => c.CountedAt >= DateTime.UtcNow.AddHours(-1))
+            .Select(c => c.UserId)
+            .Distinct()
+            .Count();
+
+        var recentCounts = await _context.InventoryCounts
+            .Where(c => c.InventorySessionId == id)
+            .OrderByDescending(c => c.CountedAt)
+            .Take(5)
+            .Select(c => new
+            {
+                Ean = c.Ean,
+                ProductName = _context.Products.Where(p => p.Ean == c.Ean).Select(p => p.Name).FirstOrDefault() ?? "Produto Desconhecido",
+                ProductLocationId = c.ProductLocationId,
+                Quantity = c.Quantity,
+                CountedAt = c.CountedAt
+            })
+            .ToListAsync();
+
+        int progress = totalSKUs > 0 ? (int)Math.Round((double)countedSKUs / totalSKUs * 100) : 0;
+        if (progress > 100) progress = 100;
+
+        return Ok(new
+        {
+            clientName = session.ClientName,
+            status = session.Status.ToString(),
+            progress,
+            totalSKUs,
+            countedSKUs,
+            totalItems,
+            divergences,
+            activeCounters,
+            recentCounts
+        });
+    }
+
     [HttpPost]
     [Authorize(Roles = "ADMIN,MANAGER")]
     public async Task<ActionResult<InventorySession>> CreateSession([FromBody] CreateSessionRequest request)
@@ -82,7 +167,7 @@ public class InventorySessionController : ControllerBase
             InventorySessionId = id,
             UserId = userId,
             Ean = request.Ean,
-            ShelfId = request.ShelfId,
+            ProductLocationId = request.ProductLocationId,
             Quantity = request.Quantity,
             CountedAt = DateTime.UtcNow,
             CountVersion = request.CountVersion
@@ -201,7 +286,7 @@ public class InventorySessionController : ControllerBase
 public class RegisterCountRequest
 {
     public string Ean { get; set; } = string.Empty;
-    public string ShelfId { get; set; } = string.Empty;
+    public Guid ProductLocationId { get; set; }
     public int Quantity { get; set; } = 1;
     public int CountVersion { get; set; } = 1;
 }

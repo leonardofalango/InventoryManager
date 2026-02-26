@@ -64,7 +64,7 @@ export function ScanPage() {
         `/inventorysession/${activeSession.id}/count`,
         {
           ean: productCode,
-          shelfId: locationId,
+          productLocationId: locationId,
           quantity: 1,
           countVersion: 1,
         },
