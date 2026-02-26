@@ -11,6 +11,7 @@ import { PreviewTable } from "../components/PreviewTable";
 import type { ProductCsvRow } from "../types/product-types";
 import { clsx } from "clsx";
 import { api } from "../../../lib/axios";
+import { useFeedbackStore } from "../../../store/feedbackStore";
 
 export function ProductUploadPage() {
   const [dragActive, setDragActive] = useState(false);
@@ -20,6 +21,8 @@ export function ProductUploadPage() {
   const [uploadStatus, setUploadStatus] = useState<
     "idle" | "success" | "error"
   >("idle");
+
+  const showFeedback = useFeedbackStore((state) => state.showFeedback);
 
   const handleFile = (selectedFile: File) => {
     if (
@@ -42,7 +45,7 @@ export function ProductUploadPage() {
         },
       });
     } else {
-      alert("Por favor, selecione um arquivo .CSV válido.");
+      showFeedback("Por favor, selecione um arquivo .CSV válido.", "error");
     }
   };
 

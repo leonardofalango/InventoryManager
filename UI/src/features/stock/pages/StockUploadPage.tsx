@@ -7,14 +7,15 @@ import {
   CheckCircle,
   AlertCircle,
   Loader2,
-  ArrowLeft,
 } from "lucide-react";
 import { PreviewTable } from "../../products/components/PreviewTable";
 import type { StockCsvRow } from "../types/stock-types";
 import { clsx } from "clsx";
 import { api } from "../../../lib/axios";
+import { useFeedbackStore } from "../../../store/feedbackStore";
 
 export function StockUploadPage() {
+  const showFeedback = useFeedbackStore((state) => state.showFeedback);
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
 
@@ -47,7 +48,7 @@ export function StockUploadPage() {
         },
       });
     } else {
-      alert("Por favor, selecione um arquivo .CSV válido.");
+      showFeedback("Por favor, selecione um arquivo .CSV válido.", "error");
     }
   };
 
