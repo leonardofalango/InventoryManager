@@ -16,6 +16,7 @@ public class InventoryDbContext : DbContext
     public DbSet<InventoryCount> InventoryCounts { get; set; }
     public DbSet<Customer> Customers { get; set; }
     public DbSet<ExpectedStock> ExpectedStocks { get; set; }
+    public DbSet<ProductLocation> ProductLocations { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -31,6 +32,10 @@ public class InventoryDbContext : DbContext
 
         modelBuilder.Entity<Product>()
             .HasIndex(p => p.Ean)
+            .IsUnique();
+
+        modelBuilder.Entity<ProductLocation>()
+            .HasIndex(pl => pl.Barcode)
             .IsUnique();
     }
 }
