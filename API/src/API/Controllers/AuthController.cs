@@ -26,7 +26,7 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
         var user = await _context.Users
-            .FirstOrDefaultAsync(u => u.Email == request.Email);
+            .FirstOrDefaultAsync(u => u.Email.ToLower() == request.Email.ToLower());
 
         // TODO: implement hash
         // if (user == null || !BCrypt.Net.Bcrypt.Verify(request.Password, user.PasswordHash))

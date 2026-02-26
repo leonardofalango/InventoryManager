@@ -47,7 +47,7 @@ public class UserController : ControllerBase
         var user = new User
         {
             Name = request.Name,
-            Email = request.Email,
+            Email = request.Email.ToLower(),
             Role = request.Role,
             TeamId = request.TeamId,
             PasswordHash = request.Password,
