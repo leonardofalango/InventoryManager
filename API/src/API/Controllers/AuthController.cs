@@ -29,6 +29,7 @@ public class AuthController : ControllerBase
             .FirstOrDefaultAsync(u => u.Email == request.Email);
 
         // TODO: implement hash
+        // if (user == null || !BCrypt.Net.Bcrypt.Verify(request.Password, user.PasswordHash))
         if (user == null || user.PasswordHash != request.Password)
         {
             return Unauthorized(new { message = "Email ou senha inválidos" });

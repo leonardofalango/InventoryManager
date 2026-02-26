@@ -10,6 +10,7 @@ import { ScanPage } from "../features/scan/pages/ScanPage";
 import { useAuthStore } from "../store/authStore";
 import type { JSX } from "react";
 import type { Role } from "../types";
+import { LabelManagementPage } from "../features/label/pages/LabelManagementPage";
 
 const RoleProtectedRoute = ({
   children,
@@ -55,6 +56,14 @@ export const router = createBrowserRouter([
         element: (
           <RoleProtectedRoute allowedRoles={["ADMIN", "MANAGER"]}>
             <InventoryListPage />
+          </RoleProtectedRoute>
+        ),
+      },
+      {
+        path: "/label",
+        element: (
+          <RoleProtectedRoute allowedRoles={["ADMIN", "MANAGER"]}>
+            <LabelManagementPage />
           </RoleProtectedRoute>
         ),
       },

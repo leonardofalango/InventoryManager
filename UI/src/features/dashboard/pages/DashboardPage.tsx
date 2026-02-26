@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   BarChart3,
   Package,
@@ -6,41 +6,46 @@ import {
   AlertTriangle,
   Loader2,
 } from "lucide-react";
+import { AxiosError } from "axios";
 import { api } from "../../../lib/axios";
-
 import type { DashboardData } from "../types/dashboard-types";
 
 export function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const isFetching = useRef(false);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
+      if (isFetching.current) return;
+      isFetching.current = true;
+
       try {
         setError(null);
-
         const activeRes = await api.get("/InventorySession/active");
         const sessionId = activeRes.data.id;
 
-        const statsRes = await api.get(
+        const statsRes = await api.get<DashboardData>(
           `/InventorySession/${sessionId}/dashboard`,
         );
         setData(statsRes.data);
-      } catch (err: any) {
-        if (err.response?.status === 404) {
+      } catch (err: unknown) {
+        const error = err as AxiosError;
+        if (error.response?.status === 404) {
           setError("Nenhum inventário ativo para a sua equipe no momento.");
         } else {
           setError("Erro ao carregar dados do dashboard.");
         }
       } finally {
+        isFetching.current = false;
         setLoading(false);
       }
     };
 
     fetchDashboardData();
 
-    // 5 seconds to update
+    // Atualiza a cada 5 segundos
     const interval = setInterval(fetchDashboardData, 5000);
     return () => clearInterval(interval);
   }, []);
@@ -163,7 +168,7 @@ export function DashboardPage() {
                       Qtd: {item.quantity}
                     </span>
                     <span className="text-gray-500 text-xs">
-                      Prateleira: {item.productLocationId}
+                      Prateleira: {item.productLocation}
                     </span>
                   </div>
                 </li>
@@ -172,17 +177,24 @@ export function DashboardPage() {
           )}
         </div>
 
-        <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 opacity-50">
+        <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
           <h3 className="text-lg font-semibold text-white mb-4">
-            Status por Setor{" "}
-            <span className="text-xs font-normal text-gray-400">
-              (Em Breve)
-            </span>
+            Status por Setor / Local
           </h3>
           <div className="space-y-4">
-            <SectorProgress name="Medicamentos (A-Z)" percent={0} />
-            <SectorProgress name="Perfumaria" percent={0} />
-            <SectorProgress name="Dermocosméticos" percent={0} />
+            {data.sectors && data.sectors.length > 0 ? (
+              data.sectors.map((sector, idx) => (
+                <SectorProgress
+                  key={idx}
+                  name={sector.name}
+                  percent={sector.percent}
+                />
+              ))
+            ) : (
+              <p className="text-gray-500 text-sm italic">
+                Nenhuma leitura vinculada a um local ainda.
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -216,7 +228,7 @@ function SectorProgress({ name, percent }: { name: string; percent: number }) {
       </div>
       <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
         <div
-          className="h-full bg-accent"
+          className="h-full bg-accent transition-all duration-1000"
           style={{ width: `${percent}%` }}
         ></div>
       </div>

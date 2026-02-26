@@ -78,11 +78,22 @@ public class InventorySessionController : ControllerBase
             {
                 Ean = c.Ean,
                 ProductName = _context.Products.Where(p => p.Ean == c.Ean).Select(p => p.Name).FirstOrDefault() ?? "Produto Desconhecido",
-                ProductLocationId = c.ProductLocationId,
+                ProductLocation = c.ProductLocationId.ToString(),
                 Quantity = c.Quantity,
                 CountedAt = c.CountedAt
             })
             .ToListAsync();
+
+        var sectors = session.Counts
+            .GroupBy(c => c.ProductLocationId)
+            .Select(g => new
+            {
+                name = g.Key.ToString().Substring(0, 8).ToUpper(),
+                percent = totalItems > 0 ? Math.Round((double)g.Sum(c => c.Quantity) / totalItems * 100, 2) : 0
+            })
+            .OrderByDescending(s => s.percent)
+            .Take(5)
+            .ToList();
 
         int progress = totalSKUs > 0 ? (int)Math.Round((double)countedSKUs / totalSKUs * 100) : 0;
         if (progress > 100) progress = 100;
@@ -97,7 +108,8 @@ public class InventorySessionController : ControllerBase
             totalItems,
             divergences,
             activeCounters,
-            recentCounts
+            recentCounts,
+            sectors
         });
     }
 

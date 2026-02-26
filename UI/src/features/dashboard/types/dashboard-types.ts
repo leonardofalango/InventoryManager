@@ -1,7 +1,7 @@
 export interface RecentCount {
   ean: string;
   productName: string;
-  productLocationId: string;
+  productLocation: string;
   quantity: number;
   countedAt: string;
 }
@@ -16,4 +16,10 @@ export interface DashboardData {
   divergences: number;
   activeCounters: number;
   recentCounts: RecentCount[];
+  sectors: SectorData[];
+}
+
+export interface SectorData {
+  name: string;
+  percent: number;
 }

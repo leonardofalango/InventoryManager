@@ -7,6 +7,7 @@ import {
   ClipboardList,
   LogOut,
   ScanLine,
+  QrCode,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { useAuthStore } from "../../store/authStore";
@@ -31,6 +32,12 @@ const MENU_ITEMS: { path: string; label: string; icon: any; roles: Role[] }[] =
       path: "/stock",
       label: "Estoque",
       icon: CirclePile,
+      roles: ["ADMIN", "MANAGER"],
+    },
+    {
+      path: "/label",
+      label: "Etiquetas",
+      icon: QrCode,
       roles: ["ADMIN", "MANAGER"],
     },
     {
