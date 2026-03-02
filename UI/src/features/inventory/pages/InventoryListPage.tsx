@@ -425,7 +425,8 @@ export function InventoryListPage() {
                 </div>
               )}
               {selectedSession?.status === 0 ||
-              selectedSession?.status === 1 ? (
+              selectedSession?.status === 1 ||
+              selectedSession == null ? (
                 <div className="flex gap-3 justify-end mt-6 pt-4 border-t border-gray-700">
                   <button
                     type="button"

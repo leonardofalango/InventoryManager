@@ -22,6 +22,7 @@ public class InventorySessionController : ControllerBase
     {
         var session = await _context.InventorySessions
             .Include(s => s.Counts)
+                .ThenInclude(c => c.ProductLocation)
             .FirstOrDefaultAsync(s => s.Id == id);
 
         if (session == null)
@@ -78,17 +79,17 @@ public class InventorySessionController : ControllerBase
             {
                 Ean = c.Ean,
                 ProductName = _context.Products.Where(p => p.Ean == c.Ean).Select(p => p.Name).FirstOrDefault() ?? "Produto Desconhecido",
-                ProductLocation = c.ProductLocationId.ToString(),
+                ProductLocation = c.ProductLocation.Barcode.ToString(),
                 Quantity = c.Quantity,
                 CountedAt = c.CountedAt
             })
             .ToListAsync();
 
         var sectors = session.Counts
-            .GroupBy(c => c.ProductLocationId)
+            .GroupBy(c => c.ProductLocation.Barcode)
             .Select(g => new
             {
-                name = g.Key.ToString().Substring(0, 8).ToUpper(),
+                name = g.Key,
                 percent = totalItems > 0 ? Math.Round((double)g.Sum(c => c.Quantity) / totalItems * 100, 2) : 0
             })
             .OrderByDescending(s => s.percent)

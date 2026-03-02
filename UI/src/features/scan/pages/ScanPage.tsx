@@ -21,6 +21,7 @@ export function ScanPage() {
   );
   const [isLoadingSession, setIsLoadingSession] = useState(true);
 
+  const [locationName, setLocationName] = useState<string>("");
   const [locationId, setLocationId] = useState<string>("");
   const [isLocationLocked, setIsLocationLocked] = useState(false);
 
@@ -60,7 +61,6 @@ export function ScanPage() {
     return () => document.removeEventListener("click", focusInput);
   }, [activeSession, isCameraOpen]);
 
-  // Scanner de Câmera
   useEffect(() => {
     if (!isCameraOpen) return;
 
@@ -69,7 +69,6 @@ export function ScanPage() {
       {
         fps: 10,
         qrbox: { width: 250, height: 250 },
-        // Desativa a opção de upar arquivo de imagem que estava te atrapalhando
         supportedScanTypes: [0],
       },
       false,
@@ -87,14 +86,32 @@ export function ScanPage() {
     };
   }, [isCameraOpen, isLocationLocked]);
 
+  const verifyLocation = async (code: string) => {
+    try {
+      const location = await api.get(`/productlocation/${code}`);
+      setLocationId(location.data.id);
+    } catch (error: any) {
+      showFeedback(
+        error.response?.data?.message || "Localização inválida",
+        "error",
+      );
+      return false;
+    }
+    return true;
+  };
+
   const processBarcode = async (code: string) => {
     if (!code.trim() || !activeSession) return;
 
     if (!isLocationLocked) {
-      setLocationId(code);
-      setIsLocationLocked(true);
-      showFeedback(`Prateleira ${code} confirmada.`, "success");
-      return;
+      if (await verifyLocation(code)) {
+        setLocationName(code);
+        setIsLocationLocked(true);
+        showFeedback(`Prateleira ${code} confirmada.`, "success");
+        return;
+      } else {
+        return;
+      }
     }
 
     try {
@@ -176,7 +193,9 @@ export function ScanPage() {
         <div className="flex items-center justify-between">
           <h2 className="text-white font-semibold flex items-center gap-2">
             <MapPin className="text-accent" />
-            {isLocationLocked ? `Prateleira: ${locationId}` : "Ler Prateleira"}
+            {isLocationLocked
+              ? `Prateleira: ${locationName}`
+              : "Ler Prateleira"}
           </h2>
           {isLocationLocked && (
             <button

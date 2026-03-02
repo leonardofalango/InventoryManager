@@ -1,11 +1,11 @@
-// src/features/products/components/PreviewTable.tsx
 import type { ProductCsvRow } from "../types/product-types";
 
 interface Props {
   data: ProductCsvRow[];
+  preview: number;
 }
 
-export function PreviewTable({ data }: Props) {
+export function PreviewTable({ data, preview }: Props) {
   if (data.length === 0) return null;
   const headers = Object.keys(data[0]);
 
@@ -13,9 +13,11 @@ export function PreviewTable({ data }: Props) {
     <div className="border rounded-lg overflow-hidden shadow-sm bg-gray-900 mt-6">
       <div className="p-4 bg-gray-900 border-b flex justify-between items-center">
         <h3 className="font-semibold text-white">Pré-visualização dos Dados</h3>
-        <span className="text-s text-gray-300">
-          Mostrando os primeiros 5 registros
-        </span>
+        {preview > 0 && (
+          <span className="text-s text-gray-300">
+            Mostrando os primeiros {preview} registros
+          </span>
+        )}
       </div>
       <div className="overflow-x-auto ">
         <table className="w-full text-sm text-left text-gray-300">

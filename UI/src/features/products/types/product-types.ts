@@ -1,8 +1,9 @@
 export interface ProductCsvRow {
-  codigo: string;
-  descricao: string;
-  categoria: string;
-  preco: string;
+  ean: string;
+  name: string;
+  category: string;
+  price: string;
+  stockQuantity: string;
   [key: string]: string;
 }
 

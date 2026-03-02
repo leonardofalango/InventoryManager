@@ -25,7 +25,7 @@ public class ProductLocationController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<ProductLocation>> CreateProductLocation(ProductLocation location)
     {
-        location.Id = Guid.NewGuid(); // Gera um novo ID
+        location.Id = Guid.NewGuid();
         _context.ProductLocations.Add(location);
         await _context.SaveChangesAsync();
 
@@ -42,5 +42,13 @@ public class ProductLocationController : ControllerBase
         await _context.SaveChangesAsync();
 
         return NoContent();
+    }
+
+    [HttpGet("{barcode}")]
+    public async Task<ActionResult<ProductLocation>> GetProductLocationByBarcode(string barcode)
+    {
+        var location = await _context.ProductLocations.Where(pl => pl.Barcode == barcode).FirstOrDefaultAsync();
+        if (location == null) return NotFound();
+        return location;
     }
 }

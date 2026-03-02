@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Papa from "papaparse";
 import {
   UploadCloud,
@@ -12,6 +12,7 @@ import type { ProductCsvRow } from "../types/product-types";
 import { clsx } from "clsx";
 import { api } from "../../../lib/axios";
 import { useFeedbackStore } from "../../../store/feedbackStore";
+import type { Product } from "../../../types";
 
 export function ProductUploadPage() {
   const [dragActive, setDragActive] = useState(false);
@@ -21,8 +22,22 @@ export function ProductUploadPage() {
   const [uploadStatus, setUploadStatus] = useState<
     "idle" | "success" | "error"
   >("idle");
+  const [productData, setProductData] = useState<Product[]>([]);
 
   const showFeedback = useFeedbackStore((state) => state.showFeedback);
+
+  const fetchProducts = async () => {
+    try {
+      const response = await api.get("/products");
+      setProductData(response.data);
+    } catch (error) {
+      console.error("Erro ao buscar produtos:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
 
   const handleFile = (selectedFile: File) => {
     if (
@@ -85,7 +100,8 @@ export function ProductUploadPage() {
         setFile(null);
         setPreviewData([]);
         setUploadStatus("idle");
-      }, 3000);
+        fetchProducts();
+      }, 2000);
     } catch (error) {
       console.error("Erro ao importar produtos:", error);
       setUploadStatus("error");
@@ -151,7 +167,7 @@ export function ProductUploadPage() {
                   handleUpload();
                 }}
                 disabled={isUploading}
-                className="pointer-events-auto bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
+                className="z-50 pointer-events-auto bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
               >
                 {isUploading ? (
                   <Loader2 className="animate-spin" />
@@ -178,6 +194,18 @@ export function ProductUploadPage() {
       {/* Preview da Tabela */}
       {file && uploadStatus !== "success" && (
         <PreviewTable data={previewData} />
+      )}
+
+      {productData.length > 0 && (
+        <PreviewTable
+          data={productData.map((product) => ({
+            ean: product.ean,
+            name: product.name,
+            category: product.category,
+            price: product.price.toString(),
+            stockQuantity: product.stockQuantity.toString(),
+          }))}
+        />
       )}
 
       {/* Mensagem de Erro (Exemplo) */}

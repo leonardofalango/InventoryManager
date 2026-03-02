@@ -19,11 +19,28 @@ public class ImportController : ControllerBase
     {
         foreach (var product in products)
         {
+            var expected = await _context.ExpectedStocks.FirstOrDefaultAsync(p => p.Ean == product.Ean);
+            {
+                if (expected != null)
+                {
+                    expected.Ean = product.Ean;
+                    expected.ExpectedQuantity += product.StockQuantity;
+                }
+                else
+                {
+                    _context.ExpectedStocks.Add(new ExpectedStock
+                    {
+                        Ean = product.Ean,
+                        ExpectedQuantity = product.StockQuantity
+                    });
+                }
+            }
             var existing = await _context.Products.FirstOrDefaultAsync(p => p.Ean == product.Ean);
             if (existing != null)
             {
                 existing.Name = product.Name;
                 existing.Category = product.Category;
+                existing.Price = product.Price;
             }
             else
             {
