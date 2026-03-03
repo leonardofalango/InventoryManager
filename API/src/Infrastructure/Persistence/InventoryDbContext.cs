@@ -37,5 +37,17 @@ public class InventoryDbContext : DbContext
         modelBuilder.Entity<ProductLocation>()
             .HasIndex(pl => pl.Barcode)
             .IsUnique();
+
+        modelBuilder.Entity<ExpectedStock>()
+            .HasOne(es => es.Product)
+            .WithMany(p => p.ExpectedStocks)
+            .HasForeignKey(es => es.ProductId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ExpectedStock>()
+            .HasOne(es => es.InventorySession)
+            .WithMany()
+            .HasForeignKey(es => es.InventorySessionId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

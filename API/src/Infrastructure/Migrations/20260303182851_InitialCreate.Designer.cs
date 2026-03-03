@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace InventoryManager.Infrastructure.Migrations
 {
     [DbContext(typeof(InventoryDbContext))]
-    [Migration("20260226190759_AddProductLocation")]
-    partial class AddProductLocation
+    [Migration("20260303182851_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -54,19 +54,20 @@ namespace InventoryManager.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("Ean")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.Property<int>("ExpectedQuantity")
                         .HasColumnType("integer");
 
                     b.Property<Guid>("InventorySessionId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.HasIndex("InventorySessionId");
+
+                    b.HasIndex("ProductId");
 
                     b.ToTable("ExpectedStocks");
                 });
@@ -163,9 +164,6 @@ namespace InventoryManager.Infrastructure.Migrations
                     b.Property<decimal>("Price")
                         .HasColumnType("numeric");
 
-                    b.Property<int>("StockQuantity")
-                        .HasColumnType("integer");
-
                     b.HasKey("Id");
 
                     b.HasIndex("Ean")
@@ -181,6 +179,7 @@ namespace InventoryManager.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("Barcode")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<Guid?>("CustomerId")
@@ -191,9 +190,12 @@ namespace InventoryManager.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Barcode")
+                        .IsUnique();
+
                     b.HasIndex("CustomerId");
 
-                    b.ToTable("ProductLocation");
+                    b.ToTable("ProductLocations");
                 });
 
             modelBuilder.Entity("InventoryManager.Domain.Entities.Team", b =>
@@ -257,7 +259,15 @@ namespace InventoryManager.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("InventoryManager.Domain.Entities.Product", "Product")
+                        .WithMany("ExpectedStocks")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.Navigation("InventorySession");
+
+                    b.Navigation("Product");
                 });
 
             modelBuilder.Entity("InventoryManager.Domain.Entities.InventoryCount", b =>
@@ -317,6 +327,11 @@ namespace InventoryManager.Infrastructure.Migrations
             modelBuilder.Entity("InventoryManager.Domain.Entities.InventorySession", b =>
                 {
                     b.Navigation("Counts");
+                });
+
+            modelBuilder.Entity("InventoryManager.Domain.Entities.Product", b =>
+                {
+                    b.Navigation("ExpectedStocks");
                 });
 
             modelBuilder.Entity("InventoryManager.Domain.Entities.ProductLocation", b =>

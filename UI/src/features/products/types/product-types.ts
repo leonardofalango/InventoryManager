@@ -3,7 +3,6 @@ export interface ProductCsvRow {
   name: string;
   category: string;
   price: string;
-  stockQuantity: string;
   [key: string]: string;
 }
 

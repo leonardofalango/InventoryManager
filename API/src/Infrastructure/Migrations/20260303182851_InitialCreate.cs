@@ -33,8 +33,7 @@ namespace InventoryManager.Infrastructure.Migrations
                     Ean = table.Column<string>(type: "text", nullable: false),
                     Name = table.Column<string>(type: "text", nullable: false),
                     Category = table.Column<string>(type: "text", nullable: false),
-                    Price = table.Column<decimal>(type: "numeric", nullable: false),
-                    StockQuantity = table.Column<int>(type: "integer", nullable: false)
+                    Price = table.Column<decimal>(type: "numeric", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -56,6 +55,25 @@ namespace InventoryManager.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "ProductLocations",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Barcode = table.Column<string>(type: "text", nullable: false),
+                    Description = table.Column<string>(type: "text", nullable: true),
+                    CustomerId = table.Column<Guid>(type: "uuid", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ProductLocations", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ProductLocations_Customers_CustomerId",
+                        column: x => x.CustomerId,
+                        principalTable: "Customers",
+                        principalColumn: "Id");
+                });
+
+            migrationBuilder.CreateTable(
                 name: "InventorySessions",
                 columns: table => new
                 {
@@ -64,6 +82,7 @@ namespace InventoryManager.Infrastructure.Migrations
                     StartDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     EndDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     Status = table.Column<int>(type: "integer", nullable: false),
+                    TeamId = table.Column<Guid>(type: "uuid", nullable: true),
                     CustomerId = table.Column<Guid>(type: "uuid", nullable: true)
                 },
                 constraints: table =>
@@ -73,6 +92,11 @@ namespace InventoryManager.Infrastructure.Migrations
                         name: "FK_InventorySessions_Customers_CustomerId",
                         column: x => x.CustomerId,
                         principalTable: "Customers",
+                        principalColumn: "Id");
+                    table.ForeignKey(
+                        name: "FK_InventorySessions_Teams_TeamId",
+                        column: x => x.TeamId,
+                        principalTable: "Teams",
                         principalColumn: "Id");
                 });
 
@@ -104,7 +128,7 @@ namespace InventoryManager.Infrastructure.Migrations
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     InventorySessionId = table.Column<Guid>(type: "uuid", nullable: false),
-                    Ean = table.Column<string>(type: "text", nullable: false),
+                    ProductId = table.Column<Guid>(type: "uuid", nullable: false),
                     ExpectedQuantity = table.Column<int>(type: "integer", nullable: false)
                 },
                 constraints: table =>
@@ -116,6 +140,12 @@ namespace InventoryManager.Infrastructure.Migrations
                         principalTable: "InventorySessions",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_ExpectedStocks_Products_ProductId",
+                        column: x => x.ProductId,
+                        principalTable: "Products",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -126,7 +156,7 @@ namespace InventoryManager.Infrastructure.Migrations
                     InventorySessionId = table.Column<Guid>(type: "uuid", nullable: false),
                     Ean = table.Column<string>(type: "text", nullable: false),
                     Quantity = table.Column<int>(type: "integer", nullable: false),
-                    ProductLocationId = table.Column<Guid>(type: "uuid", nullable: false),
+                    ProductLocationId = table.Column<Guid>(type: "uuid", nullable: true),
                     UserId = table.Column<Guid>(type: "uuid", nullable: false),
                     CountedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     CountVersion = table.Column<int>(type: "integer", nullable: false)
@@ -140,6 +170,11 @@ namespace InventoryManager.Infrastructure.Migrations
                         principalTable: "InventorySessions",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_InventoryCounts_ProductLocations_ProductLocationId",
+                        column: x => x.ProductLocationId,
+                        principalTable: "ProductLocations",
+                        principalColumn: "Id");
                 });
 
             migrationBuilder.CreateIndex(
@@ -148,13 +183,39 @@ namespace InventoryManager.Infrastructure.Migrations
                 column: "InventorySessionId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_ExpectedStocks_ProductId",
+                table: "ExpectedStocks",
+                column: "ProductId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_InventoryCounts_InventorySessionId",
                 table: "InventoryCounts",
                 column: "InventorySessionId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_InventoryCounts_ProductLocationId",
+                table: "InventoryCounts",
+                column: "ProductLocationId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_InventorySessions_CustomerId",
                 table: "InventorySessions",
+                column: "CustomerId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_InventorySessions_TeamId",
+                table: "InventorySessions",
+                column: "TeamId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProductLocations_Barcode",
+                table: "ProductLocations",
+                column: "Barcode",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProductLocations_CustomerId",
+                table: "ProductLocations",
                 column: "CustomerId");
 
             migrationBuilder.CreateIndex(
@@ -179,13 +240,16 @@ namespace InventoryManager.Infrastructure.Migrations
                 name: "InventoryCounts");
 
             migrationBuilder.DropTable(
-                name: "Products");
-
-            migrationBuilder.DropTable(
                 name: "Users");
 
             migrationBuilder.DropTable(
+                name: "Products");
+
+            migrationBuilder.DropTable(
                 name: "InventorySessions");
+
+            migrationBuilder.DropTable(
+                name: "ProductLocations");
 
             migrationBuilder.DropTable(
                 name: "Teams");

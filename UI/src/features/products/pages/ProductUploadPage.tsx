@@ -193,7 +193,7 @@ export function ProductUploadPage() {
 
       {/* Preview da Tabela */}
       {file && uploadStatus !== "success" && (
-        <PreviewTable data={previewData} />
+        <PreviewTable data={previewData} preview={5} />
       )}
 
       {productData.length > 0 && (
@@ -203,8 +203,8 @@ export function ProductUploadPage() {
             name: product.name,
             category: product.category,
             price: product.price.toString(),
-            stockQuantity: product.stockQuantity.toString(),
           }))}
+          preview={5}
         />
       )}
 

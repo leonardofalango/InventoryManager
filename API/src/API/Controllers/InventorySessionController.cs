@@ -29,6 +29,7 @@ public class InventorySessionController : ControllerBase
             return NotFound(new { message = "Sessão não encontrada." });
 
         var expectedStocks = await _context.ExpectedStocks
+            .Include(e => e.Product)
             .Where(e => e.InventorySessionId == id)
             .ToListAsync();
 
@@ -45,24 +46,10 @@ public class InventorySessionController : ControllerBase
             .ToList();
 
         int divergences = 0;
-
-        if (expectedStocks.Any())
+        foreach (var counted in countedPerEan)
         {
-            foreach (var counted in countedPerEan)
-            {
-                var expected = expectedStocks.FirstOrDefault(e => e.Ean == counted.Ean)?.ExpectedQuantity ?? 0;
-                if (expected != counted.TotalCount) divergences++;
-            }
-        }
-        else
-        {
-            var eans = countedPerEan.Select(c => c.Ean).ToList();
-            var products = await _context.Products.Where(p => eans.Contains(p.Ean)).ToListAsync();
-            foreach (var counted in countedPerEan)
-            {
-                var expected = products.FirstOrDefault(p => p.Ean == counted.Ean)?.StockQuantity ?? 0;
-                if (expected != counted.TotalCount) divergences++;
-            }
+            var expected = expectedStocks.FirstOrDefault(e => e.Product?.Ean == counted.Ean)?.ExpectedQuantity ?? 0;
+            if (expected != counted.TotalCount) divergences++;
         }
 
         var activeCounters = session.Counts
@@ -79,14 +66,15 @@ public class InventorySessionController : ControllerBase
             {
                 Ean = c.Ean,
                 ProductName = _context.Products.Where(p => p.Ean == c.Ean).Select(p => p.Name).FirstOrDefault() ?? "Produto Desconhecido",
-                ProductLocation = c.ProductLocation.Barcode.ToString(),
+                ProductLocation = c.ProductLocation != null ? c.ProductLocation.Barcode.ToString() : "N/A",
                 Quantity = c.Quantity,
                 CountedAt = c.CountedAt
             })
             .ToListAsync();
 
         var sectors = session.Counts
-            .GroupBy(c => c.ProductLocation.Barcode)
+            .Where(c => c.ProductLocation != null)
+            .GroupBy(c => c.ProductLocation!.Barcode)
             .Select(g => new
             {
                 name = g.Key,

@@ -51,17 +51,20 @@ namespace InventoryManager.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("Ean")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.Property<int>("ExpectedQuantity")
                         .HasColumnType("integer");
 
                     b.Property<Guid>("InventorySessionId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("InventorySessionId");
+
+                    b.HasIndex("ProductId");
 
                     b.ToTable("ExpectedStocks");
                 });
@@ -158,9 +161,6 @@ namespace InventoryManager.Infrastructure.Migrations
                     b.Property<decimal>("Price")
                         .HasColumnType("numeric");
 
-                    b.Property<int>("StockQuantity")
-                        .HasColumnType("integer");
-
                     b.HasKey("Id");
 
                     b.HasIndex("Ean")
@@ -248,6 +248,25 @@ namespace InventoryManager.Infrastructure.Migrations
                     b.ToTable("Users");
                 });
 
+            modelBuilder.Entity("InventoryManager.Domain.Entities.ExpectedStock", b =>
+                {
+                    b.HasOne("InventoryManager.Domain.Entities.InventorySession", "InventorySession")
+                        .WithMany()
+                        .HasForeignKey("InventorySessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("InventoryManager.Domain.Entities.Product", "Product")
+                        .WithMany("ExpectedStocks")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("InventorySession");
+
+                    b.Navigation("Product");
+                });
+
             modelBuilder.Entity("InventoryManager.Domain.Entities.InventoryCount", b =>
                 {
                     b.HasOne("InventoryManager.Domain.Entities.InventorySession", "InventorySession")
@@ -305,6 +324,11 @@ namespace InventoryManager.Infrastructure.Migrations
             modelBuilder.Entity("InventoryManager.Domain.Entities.InventorySession", b =>
                 {
                     b.Navigation("Counts");
+                });
+
+            modelBuilder.Entity("InventoryManager.Domain.Entities.Product", b =>
+                {
+                    b.Navigation("ExpectedStocks");
                 });
 
             modelBuilder.Entity("InventoryManager.Domain.Entities.ProductLocation", b =>
