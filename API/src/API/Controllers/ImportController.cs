@@ -36,18 +36,43 @@ public class ImportController : ControllerBase
     }
 
     [HttpPost("expected-stock/{sessionId}")]
-    public async Task<IActionResult> ImportStock(Guid sessionId, [FromBody] List<ExpectedStock> stockItems)
+    public async Task<IActionResult> ImportStock(Guid sessionId, [FromBody] List<ImportExpectedStock> stockItems)
     {
         var session = await _context.InventorySessions.AnyAsync(s => s.Id == sessionId);
         if (!session) return NotFound("Sessão não encontrada.");
-
+        string notFoundEans = string.Empty;
         foreach (var item in stockItems)
         {
-            item.InventorySessionId = sessionId;
-            _context.ExpectedStocks.Add(item);
+            var product = await _context.Products.FirstOrDefaultAsync(p => p.Ean == item.Ean);
+            if (product == null)
+            {
+                notFoundEans += $"{item.Ean}, ";
+                continue;
+            }
+
+            var expectedStock = new ExpectedStock
+            {
+                InventorySessionId = sessionId,
+                ProductId = product.Id,
+                Product = product,
+                ExpectedQuantity = item.ExpectedQuantity
+            };
+            _context.ExpectedStocks.Add(expectedStock);
         }
 
         await _context.SaveChangesAsync();
+
+        if (!string.IsNullOrEmpty(notFoundEans))
+        {
+            return Ok(new { message = $"Estoque importado, mas os seguintes EANs não foram encontrados: {notFoundEans.TrimEnd(',', ' ')}" });
+        }
+
         return Ok(new { message = "Estoque do cliente importado." });
     }
+}
+
+public class ImportExpectedStock
+{
+    public required string Ean { get; set; }
+    public int ExpectedQuantity { get; set; }
 }

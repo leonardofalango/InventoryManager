@@ -104,13 +104,13 @@ export const LabelManagementPage = () => {
       <div className="flex gap-4 mb-6">
         <button
           onClick={() => setIsAdding(!isAdding)}
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
         >
           {isAdding ? "Cancelar" : "+ Nova Prateleira"}
         </button>
         <button
           onClick={exportPDF}
-          className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700"
+          className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 transition"
         >
           Exportar todas em PDF
         </button>
@@ -191,13 +191,13 @@ export const LabelManagementPage = () => {
                   <td className="border border-gray-700 px-4 py-2 flex gap-2">
                     <button
                       onClick={() => printZebra(shelf)}
-                      className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+                      className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm transition"
                     >
                       Imprimir ZPL
                     </button>
                     <button
                       onClick={() => handleDelete(shelf.id)}
-                      className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm"
+                      className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm transition"
                     >
                       Excluir
                     </button>

@@ -29,7 +29,7 @@ const MENU_ITEMS: { path: string; label: string; icon: any; roles: Role[] }[] =
       roles: ["ADMIN", "MANAGER"],
     },
     {
-      path: "/stock",
+      path: "/stock/",
       label: "Estoque",
       icon: CirclePile,
       roles: ["ADMIN", "MANAGER"],

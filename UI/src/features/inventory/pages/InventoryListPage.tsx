@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import { api } from "../../../lib/axios";
 import { useFeedbackStore } from "../../../store/feedbackStore";
-import { useNavigate } from "react-router-dom";
 
 interface InventorySessionModel {
   id: string;
@@ -44,8 +43,6 @@ export function InventoryListPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const showFeedback = useFeedbackStore((state) => state.showFeedback);
-
-  const navigate = useNavigate();
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -242,7 +239,7 @@ export function InventoryListPage() {
               return (
                 <div
                   key={session.id}
-                  onClick={() => navigate(`/inventory/${session.id}`)}
+                  onClick={() => handleOpenEdit(session)}
                   className="bg-gray-800 border border-gray-700 rounded-lg p-5 flex items-center justify-between hover:border-gray-500 hover:bg-gray-700/50 transition-all cursor-pointer shadow-sm"
                 >
                   <div className="flex gap-4 items-center">
@@ -297,13 +294,7 @@ export function InventoryListPage() {
                           <CheckCircle size={16} /> Finalizar
                         </button>
                       )}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenEdit(session);
-                        }}
-                        className="text-gray-400 hover:text-white ml-2 flex items-center gap-1 z-10"
-                      >
+                      <button className="text-gray-400 hover:text-white ml-2 flex items-center gap-1">
                         <Edit3 size={18} />
                       </button>
                     </div>

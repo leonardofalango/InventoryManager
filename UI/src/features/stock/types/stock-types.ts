@@ -8,3 +8,10 @@ export interface UploadSummary {
   fileName: string;
   preview: StockCsvRow[];
 }
+
+export interface ExpectedStockItem {
+  id: string;
+  ean: string;
+  productName: string;
+  expectedQuantity: number;
+}
