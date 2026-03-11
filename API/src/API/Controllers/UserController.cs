@@ -50,7 +50,7 @@ public class UserController : ControllerBase
             Email = request.Email.ToLower(),
             Role = request.Role,
             TeamId = request.TeamId,
-            PasswordHash = request.Password,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
         };
 
         _context.Users.Add(user);

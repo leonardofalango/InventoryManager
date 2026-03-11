@@ -11,6 +11,8 @@ import { useAuthStore } from "../store/authStore";
 import type { JSX } from "react";
 import type { Role } from "../types";
 import { LabelManagementPage } from "../features/label/pages/LabelManagementPage";
+import { RecoveryPage } from "../features/auth/pages/RecoveryPage";
+import { ChangePasswordPage } from "../features/auth/pages/ChangePassword";
 
 const RoleProtectedRoute = ({
   children,
@@ -104,5 +106,13 @@ export const router = createBrowserRouter([
   {
     path: "/login",
     element: <LoginPage />,
+  },
+  {
+    path: "/recovery",
+    element: <RecoveryPage />,
+  },
+  {
+    path: "/change-password",
+    element: <ChangePasswordPage />,
   },
 ]);

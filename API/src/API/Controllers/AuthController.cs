@@ -28,11 +28,18 @@ public class AuthController : ControllerBase
         var user = await _context.Users
             .FirstOrDefaultAsync(u => u.Email.ToLower() == request.Email.ToLower());
 
-        // TODO: implement hash
-        // if (user == null || !BCrypt.Net.Bcrypt.Verify(request.Password, user.PasswordHash))
-        if (user == null || user.PasswordHash != request.Password)
+        if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
         {
             return Unauthorized(new { message = "Email ou senha inválidos" });
+        }
+
+        if (user.isRecovery)
+        {
+            return Ok(new
+            {
+                message = "Altere sua senha para continuar",
+                recovery = true
+            });
         }
 
         var token = GenerateJwtToken(user);
@@ -48,6 +55,45 @@ public class AuthController : ControllerBase
                 role = user.Role.ToUpper()
             }
         });
+    }
+
+    [HttpPost("recovery")]
+    public async Task<IActionResult> Recovery([FromBody] RecoveryRequest request)
+    {
+        var user = await _context.Users
+            .FirstOrDefaultAsync(u => u.Email.ToLower() == request.Email.ToLower());
+
+        if (user == null)
+            return NotFound(new { message = "Usuário não encontrado" });
+
+        var tempPassword = Guid.NewGuid().ToString().Substring(0, 8);
+
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(tempPassword);
+        user.isRecovery = true;
+        await _context.SaveChangesAsync();
+
+        Console.WriteLine("tempPassword: " + tempPassword);
+
+        //TODO connect email service and send password recovery
+        return Ok(new { message = "Senha temporária gerada. Verifique seu email" });
+    }
+
+    [HttpPost("change-password")]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+    {
+        var user = await _context.Users
+            .FirstOrDefaultAsync(u => u.Email.ToLower() == request.Email.ToLower());
+
+        if (user == null)
+            return NotFound(new { message = "Usuário não encontrado" });
+
+        if (!BCrypt.Net.BCrypt.Verify(request.CurrentPassword, user.PasswordHash))
+            return BadRequest(new { message = "Senha atual incorreta" });
+
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+        user.isRecovery = false;
+        await _context.SaveChangesAsync();
+        return Ok(new { message = "Senha alterada com sucesso" });
     }
 
     private string GenerateJwtToken(User user)
@@ -80,4 +126,16 @@ public class LoginRequest
 {
     public string Email { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
+}
+
+public class RecoveryRequest
+{
+    public string Email { get; set; } = string.Empty;
+}
+
+public class ChangePasswordRequest
+{
+    public string Email { get; set; } = string.Empty;
+    public string CurrentPassword { get; set; } = string.Empty;
+    public string NewPassword { get; set; } = string.Empty;
 }

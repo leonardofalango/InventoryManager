@@ -19,7 +19,7 @@ public static class DbInitializer
             Name = "Administrador",
             Email = "admin@inventory.com",
             Role = "ADMIN",
-            PasswordHash = "admin123"
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("admin123")
         };
 
         context.Users.Add(admin);
