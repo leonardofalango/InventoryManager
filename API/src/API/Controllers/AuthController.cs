@@ -15,11 +15,13 @@ public class AuthController : ControllerBase
 {
     private readonly InventoryDbContext _context;
     private readonly IConfiguration _configuration;
+    private readonly IMailService _mailService;
 
-    public AuthController(InventoryDbContext context, IConfiguration configuration)
+    public AuthController(InventoryDbContext context, IConfiguration configuration, IMailService mailService)
     {
         _context = context;
         _configuration = configuration;
+        _mailService = mailService;
     }
 
     [HttpPost("login")]
@@ -74,7 +76,17 @@ public class AuthController : ControllerBase
 
         Console.WriteLine("tempPassword: " + tempPassword);
 
-        //TODO connect email service and send password recovery
+        var subject = "Recuperação de senha - Absolutalog Inventory Manager";
+        var body = $@"
+            <p>Olá {user.Name},</p>
+            <p>Uma solicitação de recuperação de senha foi feita para sua conta. Use a senha temporária abaixo para acessar o sistema e alterá-la imediatamente.</p>
+            <h3>Sua senha temporária: {tempPassword}</h3>
+            <p>Se você não solicitou essa recuperação, por favor ignore este email.</p>
+            <p>Atenciosamente,<br/>Equipe Absolutalog Inventory Manager</p>
+            <p><i>Este é um email automátco por favor não responda</i></p>
+        ";
+
+        await _mailService.SendEmailAsync(user.Email, subject, body);
         return Ok(new { message = "Senha temporária gerada. Verifique seu email" });
     }
 
