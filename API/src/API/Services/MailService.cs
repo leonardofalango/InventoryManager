@@ -17,38 +17,51 @@ namespace Api.Services
         {
             var accessKey = _config["AWSSES:AccessKey"];
             var secretKey = _config["AWSSES:SecretKey"];
-            var regionString = _config["AWSSES:Region"];
-            var senderAddress = _config["AWSSES:SenderEmail"];
+            var regionString = _config["AWSSES:Region"] ?? "sa-east-1";
+            var senderAddress = _config["AWSSES:SenderEmail"] ?? "no-reply@absolutalog.com.br";
 
             var region = RegionEndpoint.GetBySystemName(regionString);
 
-            using var client = new AmazonSimpleEmailServiceClient(accessKey, secretKey, region);
+            AmazonSimpleEmailServiceClient client;
 
-            var sendRequest = new SendEmailRequest
+            if (!string.IsNullOrEmpty(accessKey) && !string.IsNullOrEmpty(secretKey))
             {
-                Source = senderAddress,
-                Destination = new Destination
-                {
-                    ToAddresses = new List<string> { to }
-                },
-                Message = new Message
-                {
-                    Subject = new Content(subject),
-                    Body = new Body
-                    {
-                        Html = new Content(htmlBody)
-                    }
-                }
-            };
-
-            try
-            {
-                await client.SendEmailAsync(sendRequest);
+                client = new AmazonSimpleEmailServiceClient(accessKey, secretKey, region);
             }
-            catch (Exception ex)
+            else
             {
-                Console.WriteLine($"Erro ao enviar email: {ex.Message}");
-                throw;
+                client = new AmazonSimpleEmailServiceClient(region);
+            }
+
+            using (client)
+            {
+
+                var sendRequest = new SendEmailRequest
+                {
+                    Source = senderAddress,
+                    Destination = new Destination
+                    {
+                        ToAddresses = new List<string> { to }
+                    },
+                    Message = new Message
+                    {
+                        Subject = new Content(subject),
+                        Body = new Body
+                        {
+                            Html = new Content(htmlBody)
+                        }
+                    }
+                };
+
+                try
+                {
+                    await client.SendEmailAsync(sendRequest);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Erro ao enviar email: {ex.Message}");
+                    throw;
+                }
             }
         }
     }

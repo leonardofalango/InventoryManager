@@ -10,10 +10,13 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowReactApp",
+    options.AddPolicy("AllowApp",
         policy =>
         {
-            policy.WithOrigins("http://localhost:5173")
+            policy.WithOrigins(
+                "http://localhost:5173",
+                "http://absoluta-log-s3-sandbox.s3-website-sa-east-1.amazonaws.com"
+            )
                   .AllowAnyHeader()
                   .AllowAnyMethod();
         });
@@ -74,7 +77,7 @@ if (app.Environment.IsDevelopment())
 }
 
 // 3. Ativar CORS
-app.UseCors("AllowReactApp");
+app.UseCors("AllowApp");
 
 app.UseHttpsRedirection();
 app.UseAuthorization();
