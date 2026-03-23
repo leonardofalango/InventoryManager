@@ -1,13 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import {
-  Camera,
-  MapPin,
-  ScanLine,
-  AlertCircle,
-  PackageX,
-  X,
-  Keyboard,
-} from "lucide-react";
+import { Camera, MapPin, ScanLine, PackageX, X, Keyboard } from "lucide-react";
 import { Html5QrcodeScanner } from "html5-qrcode";
 import { useFeedbackStore } from "../../../store/feedbackStore";
 import { api } from "../../../lib/axios";

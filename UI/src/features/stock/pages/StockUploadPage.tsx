@@ -61,6 +61,7 @@ export function StockUploadPage() {
         .then((res) => {
           setClientName(res.data.clientName);
           setSessionId(res.data.id);
+          console.log("Sessão ativa encontrada:", clientName);
         })
         .catch(() =>
           showFeedback("Nenhum inventário ativo encontrado.", "error"),

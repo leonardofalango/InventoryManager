@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { jsPDF } from "jspdf";
 import { api } from "../../../lib/axios";
 import { useFeedbackStore } from "../../../store/feedbackStore";
+import JsBarcode from "jsbarcode";
 
 interface ProductLocation {
   id: string;
@@ -82,17 +83,48 @@ export const LabelManagementPage = () => {
   };
 
   const exportPDF = () => {
+    // TODO REMOVE THIS DEBUG OPTION
+    // const formatEan13 = (code: string) => {
+    //   return code.replace(/\D/g, "").padStart(13, "0");
+    // };
+
+    const shelvesPerPage = 4;
     const doc = new jsPDF();
+
+    const labelWidth = 180;
+    const labelHeight = 65;
+
     shelves.forEach((shelf, index) => {
-      if (index > 0) doc.addPage();
-      doc.text(`Etiqueta: ${shelf.description}`, 10, 10);
-      doc.text(`Código: ${shelf.barcode}`, 10, 20);
+      if (index > 0 && index % shelvesPerPage === 0) {
+        doc.addPage();
+      }
+
+      const position = index % shelvesPerPage;
+      const yOffset = 10 + position * labelHeight;
+      const canvas = document.createElement("canvas");
+
+      JsBarcode(canvas, shelf.barcode, {
+        // TODO CHECK CODE128 OR EAN13
+        format: "CODE128",
+        displayValue: true,
+        fontSize: 16,
+        height: 40,
+        width: 2,
+        margin: 0,
+      });
+
+      const barcodeImage = canvas.toDataURL("image/png");
+
+      doc.setFontSize(14);
+      doc.text(shelf.description, 105, yOffset + 10, { align: "center" });
+
+      doc.addImage(barcodeImage, "PNG", 20, yOffset + 15, labelWidth - 40, 40);
+
+      doc.line(10, yOffset + labelHeight - 5, 200, yOffset + labelHeight - 5);
     });
+
     doc.save("etiquetas.pdf");
-    showFeedback(
-      "Função de exportação PDF a ser implementada com jsPDF.",
-      "error",
-    );
+    showFeedback("Arquivo PDF gerado. Verifique seu download.", "info");
   };
 
   return (
