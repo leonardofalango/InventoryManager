@@ -21,7 +21,18 @@ public class TeamController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Team>>> GetTeams()
     {
-        return await _context.Teams.ToListAsync();
+
+        var teams = _context.Teams.Include(t => t.Members)
+            .Select(t => new
+            {
+                t.Id,
+                t.Name,
+                t.Description,
+                Members = t.Members.Select(u => new { u.Id, u.Name, u.Email })
+            })
+            .ToListAsync();
+
+        return Ok(await teams);
     }
 
     [HttpPost]

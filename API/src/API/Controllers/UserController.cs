@@ -12,10 +12,12 @@ namespace InventoryManager.API.Controllers;
 public class UserController : ControllerBase
 {
     private readonly InventoryDbContext _context;
+    private readonly IMailService _mailService;
 
-    public UserController(InventoryDbContext context)
+    public UserController(InventoryDbContext context, IMailService mailService)
     {
         _context = context;
+        _mailService = mailService;
     }
 
     [HttpGet]
@@ -44,18 +46,23 @@ public class UserController : ControllerBase
             return BadRequest("E-mail já cadastrado.");
         }
 
+        var newPass = Guid.NewGuid().ToString().Substring(0, 8);
         var user = new User
         {
             Name = request.Name,
             Email = request.Email.ToLower(),
             Role = request.Role,
             TeamId = request.TeamId,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPass),
+            isRecovery = true
         };
+
+        await _mailService.SendEmailAsync(user.Email, "Bem-vindo ao sistema", $"Sua senha temporária é: {newPass}");
 
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
+        Console.WriteLine($"Usuário criado: {user.Email} com senha temporária: {newPass}");
         return CreatedAtAction(nameof(GetUsers), new { id = user.Id }, user);
     }
 
@@ -91,7 +98,6 @@ public class UserController : ControllerBase
     {
         public string Name { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
-        public string Password { get; set; } = string.Empty;
         public string Role { get; set; } = "COUNTER";
         public Guid TeamId { get; set; }
 

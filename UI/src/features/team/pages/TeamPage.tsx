@@ -291,22 +291,6 @@ export function TeamPage() {
                 />
               </div>
 
-              {!editingMember && (
-                <div>
-                  <label className="block text-sm text-gray-400 mb-1">
-                    Senha
-                  </label>
-                  <input
-                    required
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white focus:border-accent outline-none"
-                    placeholder="Senha de acesso"
-                  />
-                </div>
-              )}
-
               <div>
                 <label className="block text-sm text-gray-400 mb-1">Time</label>
                 <select
