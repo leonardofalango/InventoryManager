@@ -1,5 +1,12 @@
-import { useState, useEffect } from "react";
-import { Loader2, Plus, UsersRound, Trash2, UserCog } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import {
+  Loader2,
+  Plus,
+  UsersRound,
+  Trash2,
+  UserCog,
+  Search,
+} from "lucide-react";
 import { api } from "../../../lib/axios";
 import type { User, Team } from "../../../types";
 import { useFeedbackStore } from "../../../store/feedbackStore";
@@ -18,7 +25,10 @@ export function TeamPage() {
 
   const [activeTab, setActiveTab] = useState<"members" | "teams">("members");
 
-  const [userId, setUserId] = useState(""); // Para edição
+  // Novo estado para a barra de pesquisa
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const [userId, setUserId] = useState("");
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -54,8 +64,6 @@ export function TeamPage() {
   };
 
   const handleUserClick = (member: User) => {
-    console.log("EQUIPE:", member.team);
-    console.log("EQUIPE:", member.team);
     setEditingMember(member);
     setUserId(member.id);
     setNewName(member.name);
@@ -131,6 +139,38 @@ export function TeamPage() {
     setEditingMember(null);
   };
 
+  const groupedFilteredMembers = useMemo(() => {
+    const filtered = members.filter((m) => {
+      const searchLower = searchTerm.toLowerCase();
+      return (
+        m.name.toLowerCase().includes(searchLower) ||
+        (m.email && m.email.toLowerCase().includes(searchLower))
+      );
+    });
+
+    const groups = filtered.reduce(
+      (acc, member) => {
+        const teamId = member.team?.id || "unassigned";
+        if (!acc[teamId]) {
+          acc[teamId] = {
+            id: teamId,
+            name: member.team?.name || "Sem Time",
+            members: [],
+          };
+        }
+        acc[teamId].members.push(member);
+        return acc;
+      },
+      {} as Record<string, { id: string; name: string; members: User[] }>,
+    );
+
+    return Object.values(groups).sort((a, b) => {
+      if (a.id === "unassigned") return 1;
+      if (b.id === "unassigned") return -1;
+      return a.name.localeCompare(b.name);
+    });
+  }, [members, searchTerm]);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -159,21 +199,39 @@ export function TeamPage() {
         </div>
       </div>
 
-      <div className="flex justify-end">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         {activeTab === "members" ? (
-          <button
-            onClick={openNewMemberModal}
-            className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg border border-gray-600 flex items-center gap-2"
-          >
-            <Plus size={18} /> Adicionar Membro
-          </button>
+          <>
+            {/* Barra de pesquisa de membros */}
+            <div className="relative w-full sm:w-96">
+              <Search
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                size={18}
+              />
+              <input
+                type="text"
+                placeholder="Buscar membro por nome ou email..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-10 pr-4 py-2 text-white focus:border-accent outline-none"
+              />
+            </div>
+            <button
+              onClick={openNewMemberModal}
+              className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg border border-gray-600 flex items-center gap-2 whitespace-nowrap"
+            >
+              <Plus size={18} /> Adicionar Membro
+            </button>
+          </>
         ) : (
-          <button
-            onClick={() => setShowTeamModal(true)}
-            className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg border border-gray-600 flex items-center gap-2"
-          >
-            <Plus size={18} /> Novo Time
-          </button>
+          <div className="w-full flex justify-end">
+            <button
+              onClick={() => setShowTeamModal(true)}
+              className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg border border-gray-600 flex items-center gap-2"
+            >
+              <Plus size={18} /> Novo Time
+            </button>
+          </div>
         )}
       </div>
 
@@ -184,43 +242,58 @@ export function TeamPage() {
       ) : (
         <>
           {activeTab === "members" && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {members.map((member) => (
-                <div
-                  key={member.id}
-                  onClick={() => handleUserClick(member)}
-                  className="bg-gray-800 border border-gray-700 rounded-xl p-6 flex flex-col gap-4 cursor-pointer hover:border-accent hover:bg-gray-800/80 transition-all group relative"
-                  title="Clique para editar"
-                >
-                  <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <UserCog className="text-accent" size={20} />
-                  </div>
-
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-700 to-gray-600 flex items-center justify-center text-white font-bold text-lg">
-                      {member.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <h3 className="text-white font-medium group-hover:text-accent transition-colors">
-                        {member.name}
-                      </h3>
-                      <p className="text-sm text-gray-400 flex items-center gap-1">
-                        <UsersRound size={12} />{" "}
-                        {member.team ? member.team.name : "Sem Time"}
-                      </p>
-                      <span className="text-xs bg-gray-900 px-2 py-1 rounded text-gray-500 mt-1 inline-block border border-gray-700">
-                        {member.role === "MANAGER"
-                          ? "Gerente"
-                          : member.role === "COUNTER"
-                            ? "Contador"
-                            : member.role}
+            <div className="space-y-8">
+              {groupedFilteredMembers.length === 0 ? (
+                <p className="text-gray-500">Nenhum membro encontrado.</p>
+              ) : (
+                groupedFilteredMembers.map((group) => (
+                  <div key={group.id} className="space-y-4">
+                    <h2 className="text-xl font-semibold text-gray-200 flex items-center gap-2 border-b border-gray-700 pb-2">
+                      <UsersRound size={20} className="text-accent" />
+                      {group.name}
+                      <span className="text-sm font-normal text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full ml-2">
+                        {group.members.length}{" "}
+                        {group.members.length === 1 ? "membro" : "membros"}
                       </span>
+                    </h2>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {group.members.map((member) => (
+                        <div
+                          key={member.id}
+                          onClick={() => handleUserClick(member)}
+                          className="bg-gray-800 border border-gray-700 rounded-xl p-6 flex flex-col gap-4 cursor-pointer hover:border-accent hover:bg-gray-800/80 transition-all group relative"
+                          title="Clique para editar"
+                        >
+                          <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <UserCog className="text-accent" size={20} />
+                          </div>
+
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-700 to-gray-600 flex items-center justify-center text-white font-bold text-lg shrink-0">
+                              {member.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="overflow-hidden">
+                              <h3 className="text-white font-medium group-hover:text-accent transition-colors truncate">
+                                {member.name}
+                              </h3>
+                              <p className="text-sm text-gray-400 truncate">
+                                {member.email}
+                              </p>
+                              <span className="text-xs bg-gray-900 px-2 py-1 rounded text-gray-500 mt-2 inline-block border border-gray-700">
+                                {member.role === "MANAGER"
+                                  ? "Gerente"
+                                  : member.role === "COUNTER"
+                                    ? "Contador"
+                                    : member.role}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                </div>
-              ))}
-              {members.length === 0 && (
-                <p className="text-gray-500">Nenhum membro cadastrado.</p>
+                ))
               )}
             </div>
           )}
@@ -257,6 +330,7 @@ export function TeamPage() {
         </>
       )}
 
+      {/* Modais de Membro e Time continuam iguais... */}
       {showMemberModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-gray-800 p-6 rounded-lg w-full max-w-md border border-gray-700 shadow-xl">
