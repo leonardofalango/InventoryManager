@@ -15,7 +15,9 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       isAuthenticated: false,
       login: (token: string, user: User) => {
+        console.log("saving token:", token);
         localStorage.setItem("token", token);
+        console.log("token saved:", localStorage.getItem("token"));
         return set({
           isAuthenticated: true,
           user: user,
