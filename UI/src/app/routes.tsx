@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from "react-router-dom";
+import { createHashRouter, Navigate } from "react-router-dom";
 import { AppLayout } from "../components/layout/AppLayout";
 import { ProductUploadPage } from "../features/products/pages/ProductUploadPage";
 import { LoginPage } from "../features/auth/pages/LoginPage";
@@ -36,7 +36,7 @@ const RoleProtectedRoute = ({
   return children;
 };
 
-export const router = createBrowserRouter([
+export const router = createHashRouter([
   {
     path: "/",
     element: (
