@@ -69,7 +69,7 @@ export function RecoveryPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-accent hover:bg-sky-600 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
+            className="w-full bg-accent hover:bg-accent/70 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
           >
             {loading ? <Loader2 className="animate-spin" /> : "Recuperar senha"}
           </button>

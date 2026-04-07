@@ -126,7 +126,7 @@ export function ProductUploadPage() {
         className={clsx(
           "relative border-2 border-dashed rounded-xl p-12 text-center transition-all duration-200 ease-in-out",
           dragActive
-            ? "border-accent bg-blue-50/10"
+            ? "border-accent bg-red-50/10"
             : "border-gray-600 bg-gray-800/50 hover:border-gray-500",
           uploadStatus === "success" && "border-green-500 bg-green-500/10",
         )}
@@ -167,7 +167,7 @@ export function ProductUploadPage() {
                   handleUpload();
                 }}
                 disabled={isUploading}
-                className="z-50 pointer-events-auto bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
+                className="z-50 pointer-events-auto bg-red-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center gap-2"
               >
                 {isUploading ? (
                   <Loader2 className="animate-spin" />

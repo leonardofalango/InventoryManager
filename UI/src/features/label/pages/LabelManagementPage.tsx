@@ -136,7 +136,7 @@ export const LabelManagementPage = () => {
       <div className="flex gap-4 mb-6">
         <button
           onClick={() => setIsAdding(!isAdding)}
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+          className="bg-red-600 text-white px-4 py-2 rounded hover:bg-accent transition"
         >
           {isAdding ? "Cancelar" : "+ Nova Prateleira"}
         </button>

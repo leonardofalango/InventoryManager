@@ -127,7 +127,8 @@ export function DashboardPage() {
         </h3>
         <div className="relative h-6 bg-gray-700 rounded-full overflow-hidden">
           <div
-            className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-600 to-accent transition-all duration-1000 ease-out"
+            //  TODO: FIX PROGRESS BAR
+            className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-600 to-sky-500 transition-all duration-1000 ease-out"
             style={{ width: `${data.progress}%` }}
           ></div>
         </div>
@@ -228,7 +229,7 @@ function SectorProgress({ name, percent }: { name: string; percent: number }) {
       </div>
       <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
         <div
-          className="h-full bg-accent transition-all duration-1000"
+          className="h-full bg-sky-500 transition-all duration-1000"
           style={{ width: `${percent}%` }}
         ></div>
       </div>

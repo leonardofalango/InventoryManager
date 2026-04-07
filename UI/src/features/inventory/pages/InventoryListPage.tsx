@@ -200,7 +200,7 @@ export function InventoryListPage() {
         </div>
         <button
           onClick={handleOpenCreate}
-          className="bg-accent hover:bg-sky-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+          className="bg-accent hover:bg-accent/70 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
         >
           <Plus size={20} /> <span>Novo Cliente / Inventário</span>
         </button>
@@ -441,7 +441,7 @@ export function InventoryListPage() {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="bg-accent hover:bg-sky-600 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
+                    className="bg-accent hover:bg-accent/70 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
                   >
                     {isSubmitting
                       ? "Salvando..."

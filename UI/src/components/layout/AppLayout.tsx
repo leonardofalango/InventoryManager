@@ -13,6 +13,7 @@ import { clsx } from "clsx";
 import { useAuthStore } from "../../store/authStore";
 import { useFeedbackStore } from "../../store/feedbackStore";
 import type { Role } from "../../types";
+import logostring from "../../assets/absolutaloglogo.png";
 
 const MENU_ITEMS: { path: string; label: string; icon: any; roles: Role[] }[] =
   [
@@ -81,9 +82,7 @@ export function AppLayout() {
       {user?.role !== "COUNTER" && (
         <aside className="w-64 bg-primary text-white flex flex-col hidden md:flex">
           <div className="p-6 border-b border-gray-700">
-            <h1 className="text-2xl font-bold tracking-tight">
-              InventoryManager
-            </h1>
+            <img src={logostring} alt="Inventory Manager" />
           </div>
 
           <nav className="flex-1 p-4 space-y-2">
@@ -122,12 +121,17 @@ export function AppLayout() {
       )}
 
       <main className="flex-1 overflow-auto py-2 flex flex-col">
-        <header className="bg-gray-900 shadow-sm h-20 flex items-center px-8 justify-between shrink-0 border-b border-gray-800">
+        <header className="bg-gray-900 shadow-sm h-20 md:h-20 flex items-center px-4 md:px-8 justify-between shrink-0 border-b border-gray-800">
           <h2 className="text-white text-lg flex items-center gap-4">
             {user?.role === "COUNTER" && (
-              <span className="font-bold text-accent">Modo Coletor</span>
+              <img
+                src={logostring}
+                alt="AbsolutaLog"
+                width={100}
+                className="block sm:hidden p-2"
+              />
             )}
-            <div>
+            <div className="hidden sm:block">
               Bem vindo,{" "}
               <strong className="text-accent">{user?.name || "Usuário"}</strong>
               <p className="text-sm text-gray-500">
@@ -142,9 +146,12 @@ export function AppLayout() {
           {user?.role === "COUNTER" && (
             <button
               onClick={handleLogOut}
-              className="text-red-400 hover:text-red-300 flex gap-2"
+              className="text-red-400 hover:text-red-300 flex gap-2 ml-auto md:ml-0"
             >
-              <LogOut size={20} /> Sair
+              <LogOut size={30} className="block sm:hidden" />
+              <LogOut size={20} className="hidden sm:block" />
+
+              <span className="hidden sm:inline">Sair</span>
             </button>
           )}
         </header>

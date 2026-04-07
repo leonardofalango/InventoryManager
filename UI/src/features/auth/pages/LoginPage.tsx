@@ -4,6 +4,7 @@ import { useAuthStore } from "../../../store/authStore";
 import { Lock, Mail, Loader2 } from "lucide-react";
 import { api } from "../../../lib/axios";
 import { useFeedbackStore } from "../../../store/feedbackStore";
+import logo from "../../../assets/absolutaloglogo.png";
 
 export function LoginPage() {
   const showFeedback = useFeedbackStore((state) => state.showFeedback);
@@ -76,10 +77,7 @@ export function LoginPage() {
     <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
       <div className="bg-gray-800 p-8 rounded-xl shadow-2xl w-full max-w-md border border-gray-700">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">
-            Inventory Manager
-          </h1>
-          <p className="text-gray-400">Acesse para gerenciar inventários</p>
+          <img src={logo} alt="Inventory Manager" />
         </div>
 
         {!recoveryMode ? (
@@ -127,7 +125,7 @@ export function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-accent py-2 hover:bg-sky-600 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
+              className="w-full py-2 bg-accent hover:bg-accent/70 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
             >
               {loading ? <Loader2 className="animate-spin" /> : "Entrar"}
             </button>
@@ -136,7 +134,7 @@ export function LoginPage() {
               onClick={() => navigate("/recovery")}
               type="button"
               disabled={loading}
-              className="w-full bg-accent hover:text-sky-300 text-white transition-colors flex items-center justify-center text-sm"
+              className="w-full hover:text-red-400 text-white transition-colors flex items-center justify-center text-sm"
             >
               Esqueceu sua senha?
             </button>
@@ -189,7 +187,7 @@ export function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-accent py-2 hover:bg-sky-600 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
+              className="w-full bg-accent hover:bg-accent/70 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
             >
               {loading ? <Loader2 className="animate-spin" /> : "Alterar senha"}
             </button>
