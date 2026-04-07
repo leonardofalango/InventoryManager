@@ -15,6 +15,7 @@ builder.Services.AddCors(options =>
         {
             policy.WithOrigins(
                 "http://localhost:5173",
+                "http://localhost",
                 "http://absoluta-log-s3-sandbox.s3-website-sa-east-1.amazonaws.com"
             )
                   .AllowAnyHeader()
