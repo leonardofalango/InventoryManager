@@ -66,7 +66,7 @@ public class UserController : ControllerBase
             TeamId = request.TeamId,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPass),
             PasswordString = request.Role == "COUNTER" ? newPass : null,
-            isRecovery = true
+            isRecovery = request.Password != null && request.Role == "COUNTER" ? false : true
         };
 
 
