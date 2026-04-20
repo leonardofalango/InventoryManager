@@ -96,7 +96,7 @@ export function LoginPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg py-3 pl-10 px-4 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg py-3 pl-10 px-4 text-textAccent placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent"
                   placeholder="seu@email.com"
                 />
               </div>
@@ -116,7 +116,7 @@ export function LoginPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg py-3 pl-10 px-4 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg py-3 pl-10 px-4 text-textAccent placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent"
                   placeholder="••••••••"
                 />
               </div>
@@ -125,7 +125,7 @@ export function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2 bg-accent hover:bg-accent/70 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
+              className="w-full py-2 bg-accent hover:bg-accent/70 text-textAccent font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
             >
               {loading ? <Loader2 className="animate-spin" /> : "Entrar"}
             </button>
@@ -134,14 +134,14 @@ export function LoginPage() {
               onClick={() => navigate("/recovery")}
               type="button"
               disabled={loading}
-              className="w-full hover:text-red-400 text-white transition-colors flex items-center justify-center text-sm"
+              className="w-full hover:text-red-400 text-textAccent transition-colors flex items-center justify-center text-sm"
             >
               Esqueceu sua senha?
             </button>
           </form>
         ) : (
           <form onSubmit={handleChangePassword} className="space-y-6">
-            <h1 className="text-white w-full text-center text-lg font-bold mb-4">
+            <h1 className="text-textAccent w-full text-center text-lg font-bold mb-4">
               Alterando senha
             </h1>
             <div className="mb-2">
@@ -158,7 +158,7 @@ export function LoginPage() {
                   required
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg py-3 pl-10 px-4 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg py-3 pl-10 px-4 text-textAccent placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent"
                   placeholder="••••••••"
                 />
               </div>
@@ -178,7 +178,7 @@ export function LoginPage() {
                   required
                   value={repeatNewPassword}
                   onChange={(e) => setRepeatNewPassword(e.target.value)}
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg py-3 pl-10 px-4 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg py-3 pl-10 px-4 text-textAccent placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent"
                   placeholder="••••••••"
                 />
               </div>
@@ -187,7 +187,7 @@ export function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-accent hover:bg-accent/70 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
+              className="w-full bg-accent hover:bg-accent/70 text-textAccent font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
             >
               {loading ? <Loader2 className="animate-spin" /> : "Alterar senha"}
             </button>

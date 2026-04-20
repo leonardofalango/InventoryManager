@@ -1,245 +1,202 @@
-import React, { useState, useEffect } from "react";
-import { jsPDF } from "jspdf";
-import { api } from "../../../lib/axios";
+import { useState, useEffect } from "react";
+import { Tag, Plus, Link as LinkIcon, Loader2 } from "lucide-react";
 import { useFeedbackStore } from "../../../store/feedbackStore";
-import JsBarcode from "jsbarcode";
+import { api } from "../../../lib/axios";
 
-interface ProductLocation {
+interface InventorySession {
   id: string;
-  barcode: string;
-  description: string;
+  clientName: string;
 }
 
-export const LabelManagementPage = () => {
-  const [shelves, setShelves] = useState<ProductLocation[]>([]);
-  const [loading, setLoading] = useState(false);
+interface Label {
+  id: string;
+  barcode: string;
+  inventorySession: InventorySession;
+}
 
+export function LabelManagementPage() {
   const showFeedback = useFeedbackStore((state) => state.showFeedback);
+  const [sessions, setSessions] = useState<InventorySession[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadingLabels, setLoadingLabels] = useState(false);
+  const [labels, setLabels] = useState<Label[]>([]);
 
-  const [isAdding, setIsAdding] = useState(false);
-  const [newBarcode, setNewBarcode] = useState("");
-  const [newDescription, setNewDescription] = useState("");
+  // const [generateCount, setGenerateCount] = useState(100);
 
-  const fetchShelves = async () => {
+  const [selectedSession, setSelectedSession] = useState("");
+  const [startRange, setStartRange] = useState(1);
+  const [endRange, setEndRange] = useState(100);
+
+  useEffect(() => {
+    fetchSessions();
+  }, []);
+
+  const fetchSessions = async () => {
     try {
-      setLoading(true);
-      const response = await api.get("/productlocation");
-      setShelves(response.data);
+      const response = await api.get("/InventorySession");
+      setSessions(response.data);
     } catch (error) {
-      console.error("Erro ao buscar prateleiras", error);
+      showFeedback("Erro ao carregar inventários", "error");
+    }
+  };
+
+  const fetchLabels = async () => {
+    if (!selectedSession) {
+      return showFeedback("Selecione um inventário", "error");
+    }
+    try {
+      setLoadingLabels(true);
+      const response = await api.get(
+        `/ProductLocation/labels/${selectedSession}`,
+      );
+      setLabels(response.data);
+      console.log(response.data);
+    } catch (error) {
+      showFeedback("Erro ao carregar etiquetas", "error");
+    } finally {
+      setLoadingLabels(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLabels();
+  }, [selectedSession]);
+
+  // const handleCreateBatch = async () => {
+  //   setLoading(true);
+  //   try {
+  //     await api.post(`/ProductLocation/create-locations/${generateCount}`);
+  //     showFeedback(
+  //       `${generateCount} etiquetas geradas com sucesso!`,
+  //       "success",
+  //     );
+  //   } catch (error) {
+  //     showFeedback("Erro ao gerar etiquetas", "error");
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
+  const handleCreateAndSetLocations = async () => {
+    if (!selectedSession)
+      return showFeedback("Selecione um inventário", "error");
+
+    setLoading(true);
+    try {
+      await api.post(
+        `/ProductLocation/create-and-set-locations/${selectedSession}`,
+        {
+          startCount: startRange,
+          endCount: endRange,
+        },
+      );
+      showFeedback("Etiquetas vinculadas ao inventário!", "success");
+    } catch (error) {
+      showFeedback("Erro ao vincular etiquetas.", "error");
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchShelves();
-  }, []);
-
-  const handleCreateShelf = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newBarcode || !newDescription) return;
-
-    try {
-      await api.post("/productlocation", {
-        barcode: newBarcode,
-        description: newDescription,
-      });
-      setNewBarcode("");
-      setNewDescription("");
-      setIsAdding(false);
-      fetchShelves();
-    } catch (error) {
-      console.error("Erro ao criar prateleira", error);
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!window.confirm("Deseja realmente excluir esta prateleira?")) return;
-    try {
-      await api.delete(`/productlocation/${id}`);
-      fetchShelves();
-    } catch (error) {
-      console.error("Erro ao deletar", error);
-    }
-  };
-
-  const generateZPL = (shelfCode: string, description: string) => {
-    return `
-      ^XA
-      ^FO50,50^A0N,50,50^FD${description}^FS
-      ^FO50,120^BCN,100,Y,N,N^FD${shelfCode}^FS
-      ^XZ
-    `;
-  };
-
-  const printZebra = async (shelf: ProductLocation) => {
-    const zplCode = generateZPL(shelf.barcode, shelf.description);
-    console.log("Enviando ZPL para impressora:", zplCode);
-    showFeedback(
-      `ZPL gerado para ${shelf.barcode}. Verifique o console.`,
-      "info",
-    );
-  };
-
-  const exportPDF = () => {
-    // TODO REMOVE THIS DEBUG OPTION
-    // const formatEan13 = (code: string) => {
-    //   return code.replace(/\D/g, "").padStart(13, "0");
-    // };
-
-    const shelvesPerPage = 4;
-    const doc = new jsPDF();
-
-    const labelWidth = 180;
-    const labelHeight = 65;
-
-    shelves.forEach((shelf, index) => {
-      if (index > 0 && index % shelvesPerPage === 0) {
-        doc.addPage();
-      }
-
-      const position = index % shelvesPerPage;
-      const yOffset = 10 + position * labelHeight;
-      const canvas = document.createElement("canvas");
-
-      JsBarcode(canvas, shelf.barcode, {
-        // TODO CHECK CODE128 OR EAN13
-        format: "CODE128",
-        displayValue: true,
-        fontSize: 16,
-        height: 40,
-        width: 2,
-        margin: 0,
-      });
-
-      const barcodeImage = canvas.toDataURL("image/png");
-
-      doc.setFontSize(14);
-      doc.text(shelf.description, 105, yOffset + 10, { align: "center" });
-
-      doc.addImage(barcodeImage, "PNG", 20, yOffset + 15, labelWidth - 40, 40);
-
-      doc.line(10, yOffset + labelHeight - 5, 200, yOffset + labelHeight - 5);
-    });
-
-    doc.save("etiquetas.pdf");
-    showFeedback("Arquivo PDF gerado. Verifique seu download.", "info");
-  };
-
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4 text-gray-300">
-        Gerenciamento de Etiquetas de Prateleiras
+    <div className="p-6 max-w-4xl mx-auto space-y-8">
+      <h1 className="text-2xl font-bold flex items-center gap-2 text-textPrimary">
+        <Tag className="w-6 h-6 " /> Gestão de Etiquetas
       </h1>
 
-      <div className="flex gap-4 mb-6">
-        <button
-          onClick={() => setIsAdding(!isAdding)}
-          className="bg-red-600 text-white px-4 py-2 rounded hover:bg-accent transition"
-        >
-          {isAdding ? "Cancelar" : "+ Nova Prateleira"}
-        </button>
-        <button
-          onClick={exportPDF}
-          className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 transition"
-        >
-          Exportar todas em PDF
-        </button>
-      </div>
-
-      {isAdding && (
-        <form
-          onSubmit={handleCreateShelf}
-          className="mb-6 bg-gray-800 p-4 rounded-lg border border-gray-700 flex gap-4 items-end"
-        >
-          <div>
-            <label className="block text-gray-300 mb-1">
-              Código (Ex: PRAT-001)
+      <div className="grid grid-cols-1 gap-6">
+        {/* <div className="bg-white p-6 rounded-lg shadow border border-gray-200">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <Plus className="w-5 h-5 text-blue-600" /> Gerar Novas Etiquetas
+          </h2>
+          <p className="text-sm text-gray-500 mb-4">
+            Gera etiquetas sequenciais no padrão INV0001, INV0002...
+          </p>
+          <div className="space-y-4">
+            <label className="block text-sm font-medium text-gray-700">
+              Quantidade
             </label>
             <input
-              type="text"
-              value={newBarcode}
-              onChange={(e) => setNewBarcode(e.target.value)}
-              className="px-3 py-2 rounded bg-gray-900 border border-gray-600 text-white"
-              required
+              type="number"
+              value={generateCount}
+              onChange={(e) => setGenerateCount(Number(e.target.value))}
+              className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
             />
+            <button
+              onClick={handleCreateBatch}
+              disabled={loading}
+              className="w-full bg-blue-600 text-textAccent py-2 rounded hover:bg-blue-700 flex justify-center items-center gap-2"
+            >
+              {loading ? (
+                <Loader2 className="animate-spin w-5 h-5" />
+              ) : (
+                "Gerar Etiquetas"
+              )}
+            </button>
           </div>
-          <div>
-            <label className="block text-gray-300 mb-1">Descrição</label>
-            <input
-              type="text"
-              value={newDescription}
-              onChange={(e) => setNewDescription(e.target.value)}
-              className="px-3 py-2 rounded bg-gray-900 border border-gray-600 text-white w-64"
-              required
-            />
-          </div>
-          <button
-            type="submit"
-            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-          >
-            Salvar
-          </button>
-        </form>
-      )}
+        </div> */}
 
-      {loading ? (
-        <p className="text-gray-400">Carregando etiquetas...</p>
-      ) : (
-        <table className="min-w-full border bg-gray-900/50 text-gray-300 rounded-lg border-gray-700">
-          <thead>
-            <tr>
-              <th className="border border-gray-700 px-4 py-2 text-left">
-                Código
-              </th>
-              <th className="border border-gray-700 px-4 py-2 text-left">
-                Descrição
-              </th>
-              <th className="border border-gray-700 px-4 py-2 text-left">
-                Ações
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {shelves.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={3}
-                  className="border border-gray-700 px-4 py-4 text-center"
-                >
-                  Nenhuma prateleira cadastrada.
-                </td>
-              </tr>
-            ) : (
-              shelves.map((shelf) => (
-                <tr key={shelf.id}>
-                  <td className="border border-gray-700 px-4 py-2 font-mono">
-                    {shelf.barcode}
-                  </td>
-                  <td className="border border-gray-700 px-4 py-2">
-                    {shelf.description}
-                  </td>
-                  <td className="border border-gray-700 px-4 py-2 flex gap-2">
-                    <button
-                      onClick={() => printZebra(shelf)}
-                      className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm transition"
-                    >
-                      Imprimir ZPL
-                    </button>
-                    <button
-                      onClick={() => handleDelete(shelf.id)}
-                      className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm transition"
-                    >
-                      Excluir
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      )}
+        <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-textAccent">
+            <LinkIcon className="w-5 h-5 text-green-600" /> Criar e Vincular ao
+            Inventário
+          </h2>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-textPrimary">
+                Inventário
+              </label>
+              <select
+                value={selectedSession}
+                onChange={(e) => setSelectedSession(e.target.value)}
+                className="w-full p-2 border rounded mt-1 bg-gray-700 border-gray-600 text-textAccent"
+              >
+                <option value="">Selecione um inventário...</option>
+                {sessions.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.clientName}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-textPrimary">
+                  De (Número)
+                </label>
+                <input
+                  type="number"
+                  value={startRange}
+                  onChange={(e) => setStartRange(Number(e.target.value))}
+                  className="w-full p-2 border rounded bg-gray-700 border-gray-600 text-textAccent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-textPrimary">
+                  Até (Número)
+                </label>
+                <input
+                  type="number"
+                  value={endRange}
+                  onChange={(e) => setEndRange(Number(e.target.value))}
+                  className="w-full p-2 border rounded bg-gray-700 border-gray-600 text-textAccent"
+                />
+              </div>
+            </div>
+            <button
+              onClick={handleCreateAndSetLocations}
+              disabled={loading || !selectedSession}
+              className="w-full bg-accent text-textAccent font-semibold py-2 rounded hover:bg-accentHover flex justify-center items-center gap-2 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
+            >
+              {loading ? (
+                <Loader2 className="animate-spin w-5 h-5" />
+              ) : (
+                "Vincular Etiquetas"
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
-};
+}

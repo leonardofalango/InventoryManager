@@ -40,12 +40,12 @@ export function ChangePasswordPage() {
         <div className="text-center mb-8">
           <ArrowLeft
             onClick={() => navigate("/login")}
-            className="text-white hover:text-sky-300 cursor-pointer"
+            className="text-textAccent hover:text-sky-300 cursor-pointer"
           />
-          <h1 className="text-3xl font-bold text-white mb-2">
+          <h1 className="text-3xl font-bold text-textAccent mb-2">
             Inventory Manager
           </h1>
-          <p className="text-gray-400">Altere a sua senha</p>
+          <p className="text-textSecondary">Altere a sua senha</p>
         </div>
 
         <form onSubmit={handleChangePassword} className="space-y-6">
@@ -63,7 +63,7 @@ export function ChangePasswordPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-gray-700 border border-gray-600 rounded-lg py-3 pl-10 px-4 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+                className="w-full bg-gray-700 border border-gray-600 rounded-lg py-3 pl-10 px-4 text-textAccent placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent"
                 placeholder="seu@email.com"
               />
             </div>
@@ -83,7 +83,7 @@ export function ChangePasswordPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-gray-700 border border-gray-600 rounded-lg py-3 pl-10 px-4 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+                className="w-full bg-gray-700 border border-gray-600 rounded-lg py-3 pl-10 px-4 text-textAccent placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent"
                 placeholder="••••••••"
               />
             </div>
@@ -103,7 +103,7 @@ export function ChangePasswordPage() {
                 required
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full bg-gray-700 border border-gray-600 rounded-lg py-3 pl-10 px-4 text-white placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+                className="w-full bg-gray-700 border border-gray-600 rounded-lg py-3 pl-10 px-4 text-textAccent placeholder-gray-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent"
                 placeholder="••••••••"
               />
             </div>
@@ -112,7 +112,7 @@ export function ChangePasswordPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-accent hover:bg-accent/70 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
+            className="w-full bg-accent hover:bg-accent/70 text-textAccent font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
           >
             {loading ? <Loader2 className="animate-spin" /> : "Alterar senha"}
           </button>

@@ -54,7 +54,9 @@ export function DashboardPage() {
     return (
       <div className="flex flex-col justify-center items-center h-full min-h-[400px]">
         <Loader2 className="animate-spin text-accent mb-4" size={48} />
-        <p className="text-gray-400">Carregando métricas do inventário...</p>
+        <p className="text-textSecondary">
+          Carregando métricas do inventário...
+        </p>
       </div>
     );
   }
@@ -64,8 +66,8 @@ export function DashboardPage() {
       <div className="flex justify-center items-center h-full min-h-[400px]">
         <div className="bg-gray-800 p-8 rounded-xl border border-gray-700 text-center">
           <AlertTriangle className="text-yellow-500 mx-auto mb-4" size={48} />
-          <h2 className="text-xl font-bold text-white mb-2">Atenção</h2>
-          <p className="text-gray-400">{error}</p>
+          <h2 className="text-xl font-bold text-textAccent mb-2">Atenção</h2>
+          <p className="text-textSecondary">{error}</p>
         </div>
       </div>
     );
@@ -77,12 +79,16 @@ export function DashboardPage() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white">Dashboard Geral</h1>
-          <p className="text-gray-400">Visão em tempo real da operação atual</p>
+          <h1 className="text-3xl font-bold text-textAccent">
+            Dashboard Geral
+          </h1>
+          <p className="text-textSecondary">
+            Visão em tempo real da operação atual
+          </p>
         </div>
 
         <div className="bg-gray-800 px-4 py-2 rounded-lg border border-gray-700 flex items-center gap-3">
-          <span className="text-gray-400 text-sm">Inventário Ativo:</span>
+          <span className="text-textSecondary text-sm">Inventário Ativo:</span>
           <span className="text-green-400 font-semibold flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
             {data.clientName}
@@ -110,7 +116,7 @@ export function DashboardPage() {
           value={data.divergences.toString()}
           subtext="Itens com sobra ou falta"
           icon={AlertTriangle}
-          color={data.divergences > 0 ? "text-red-400" : "text-gray-400"}
+          color={data.divergences > 0 ? "text-red-400" : "text-textSecondary"}
         />
         <StatCard
           title="Equipe Ativa"
@@ -122,7 +128,7 @@ export function DashboardPage() {
       </div>
 
       <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
-        <h3 className="text-lg font-semibold text-white mb-4">
+        <h3 className="text-lg font-semibold text-textAccent mb-4">
           Progresso da Cobertura (SKUs Lidos vs Total Esperado)
         </h3>
         <div className="relative h-6 bg-gray-700 rounded-full overflow-hidden">
@@ -132,7 +138,7 @@ export function DashboardPage() {
             style={{ width: `${data.progress}%` }}
           ></div>
         </div>
-        <div className="flex justify-between mt-2 text-sm text-gray-400">
+        <div className="flex justify-between mt-2 text-sm text-textSecondary">
           <span>0%</span>
           <span>50%</span>
           <span>100%</span>
@@ -141,7 +147,7 @@ export function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
-          <h3 className="text-lg font-semibold text-white mb-4">
+          <h3 className="text-lg font-semibold text-textAccent mb-4">
             Últimas Leituras
           </h3>
           {data.recentCounts.length === 0 ? (
@@ -165,7 +171,7 @@ export function DashboardPage() {
                     </span>
                   </div>
                   <div className="text-right">
-                    <span className="text-white font-medium block">
+                    <span className="text-textAccent font-medium block">
                       Qtd: {item.quantity}
                     </span>
                     <span className="text-gray-500 text-xs">
@@ -179,7 +185,7 @@ export function DashboardPage() {
         </div>
 
         <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
-          <h3 className="text-lg font-semibold text-white mb-4">
+          <h3 className="text-lg font-semibold text-textAccent mb-4">
             Status por Setor / Local
           </h3>
           <div className="space-y-4">
@@ -208,8 +214,8 @@ function StatCard({ title, value, subtext, icon: Icon, color }: any) {
     <div className="bg-gray-800 p-5 rounded-xl border border-gray-700 shadow-sm hover:border-gray-600 transition-all">
       <div className="flex justify-between items-start">
         <div>
-          <p className="text-sm font-medium text-gray-400 mb-1">{title}</p>
-          <h4 className="text-2xl font-bold text-white">{value}</h4>
+          <p className="text-sm font-medium text-textSecondary mb-1">{title}</p>
+          <h4 className="text-2xl font-bold text-textAccent">{value}</h4>
           <p className="text-xs text-gray-500 mt-1">{subtext}</p>
         </div>
         <div className={`p-2 rounded-lg bg-gray-700/50 ${color}`}>
@@ -225,7 +231,7 @@ function SectorProgress({ name, percent }: { name: string; percent: number }) {
     <div>
       <div className="flex justify-between text-sm mb-1">
         <span className="text-gray-300">{name}</span>
-        <span className="text-gray-400">{percent}%</span>
+        <span className="text-textSecondary">{percent}%</span>
       </div>
       <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
         <div

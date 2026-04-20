@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace InventoryManager.Infrastructure.Migrations
 {
     [DbContext(typeof(InventoryDbContext))]
-    [Migration("20260311214847_IsRecoveryInUser")]
-    partial class IsRecoveryInUser
+    [Migration("20260420124039_AddInventorySessionInPL")]
+    partial class AddInventorySessionInPL
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -60,12 +60,17 @@ namespace InventoryManager.Infrastructure.Migrations
                     b.Property<Guid>("InventorySessionId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("InventorySessionId1")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid>("ProductId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
                     b.HasIndex("InventorySessionId");
+
+                    b.HasIndex("InventorySessionId1");
 
                     b.HasIndex("ProductId");
 
@@ -157,6 +162,9 @@ namespace InventoryManager.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<Guid>("InventorySessionId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
@@ -166,7 +174,9 @@ namespace InventoryManager.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Ean")
+                    b.HasIndex("InventorySessionId");
+
+                    b.HasIndex("Ean", "InventorySessionId")
                         .IsUnique();
 
                     b.ToTable("Products");
@@ -188,12 +198,15 @@ namespace InventoryManager.Infrastructure.Migrations
                     b.Property<string>("Description")
                         .HasColumnType("text");
 
+                    b.Property<Guid?>("InventorySessionId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("Barcode")
-                        .IsUnique();
-
                     b.HasIndex("CustomerId");
+
+                    b.HasIndex("InventorySessionId", "Barcode")
+                        .IsUnique();
 
                     b.ToTable("ProductLocations");
                 });
@@ -237,6 +250,9 @@ namespace InventoryManager.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("PasswordString")
+                        .HasColumnType("text");
+
                     b.Property<string>("Role")
                         .IsRequired()
                         .HasColumnType("text");
@@ -261,6 +277,10 @@ namespace InventoryManager.Infrastructure.Migrations
                         .HasForeignKey("InventorySessionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("InventoryManager.Domain.Entities.InventorySession", null)
+                        .WithMany("ExpectedStocks")
+                        .HasForeignKey("InventorySessionId1");
 
                     b.HasOne("InventoryManager.Domain.Entities.Product", "Product")
                         .WithMany("ExpectedStocks")
@@ -303,13 +323,31 @@ namespace InventoryManager.Infrastructure.Migrations
                     b.Navigation("Team");
                 });
 
+            modelBuilder.Entity("InventoryManager.Domain.Entities.Product", b =>
+                {
+                    b.HasOne("InventoryManager.Domain.Entities.InventorySession", "InventorySession")
+                        .WithMany("Products")
+                        .HasForeignKey("InventorySessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("InventorySession");
+                });
+
             modelBuilder.Entity("InventoryManager.Domain.Entities.ProductLocation", b =>
                 {
                     b.HasOne("InventoryManager.Domain.Entities.Customer", "Customer")
                         .WithMany()
                         .HasForeignKey("CustomerId");
 
+                    b.HasOne("InventoryManager.Domain.Entities.InventorySession", "InventorySession")
+                        .WithMany("ProductLocations")
+                        .HasForeignKey("InventorySessionId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Customer");
+
+                    b.Navigation("InventorySession");
                 });
 
             modelBuilder.Entity("InventoryManager.Domain.Entities.User", b =>
@@ -330,6 +368,12 @@ namespace InventoryManager.Infrastructure.Migrations
             modelBuilder.Entity("InventoryManager.Domain.Entities.InventorySession", b =>
                 {
                     b.Navigation("Counts");
+
+                    b.Navigation("ExpectedStocks");
+
+                    b.Navigation("ProductLocations");
+
+                    b.Navigation("Products");
                 });
 
             modelBuilder.Entity("InventoryManager.Domain.Entities.Product", b =>

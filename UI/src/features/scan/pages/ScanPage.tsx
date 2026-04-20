@@ -64,7 +64,9 @@ export function ScanPage() {
 
       if (!isLocationLocked) {
         try {
-          const location = await api.get(`/productlocation/${cleanCode}`);
+          const location = await api.get(
+            `/productlocation/${activeSession.id}/${cleanCode}`,
+          );
           setLocationId(location.data.id);
           setLocationName(cleanCode);
           setIsLocationLocked(true);
@@ -133,7 +135,7 @@ export function ScanPage() {
 
   if (isLoadingSession)
     return (
-      <div className="text-white text-center mt-10 animate-pulse">
+      <div className="text-textAccent text-center mt-10 animate-pulse">
         Buscando inventário...
       </div>
     );
@@ -142,7 +144,7 @@ export function ScanPage() {
     return (
       <div className="h-full flex flex-col items-center justify-center p-6 text-center gap-4">
         <PackageX size={48} className="text-gray-500" />
-        <h2 className="text-xl font-bold text-white">Sessão Fechada</h2>
+        <h2 className="text-xl font-bold text-textAccent">Sessão Fechada</h2>
       </div>
     );
   }
@@ -170,7 +172,7 @@ export function ScanPage() {
             size={18}
             className={isLocationLocked ? "text-accent" : "text-yellow-500"}
           />
-          <span className="text-white font-bold">
+          <span className="text-textAccent font-bold">
             {isLocationLocked ? locationName : "BIPE A LOCALIZAÇÃO"}
           </span>
         </div>
@@ -218,7 +220,7 @@ export function ScanPage() {
                 ) : (
                   <AlertCircle size={14} className="text-red-500" />
                 )}
-                <span className="text-white font-mono font-bold">
+                <span className="text-textAccent font-mono font-bold">
                   {item.code}
                 </span>
               </div>
@@ -232,10 +234,10 @@ export function ScanPage() {
         <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
           <div className="bg-gray-800 p-4 rounded-xl w-full border border-gray-600">
             <div className="flex justify-between mb-4">
-              <h3 className="text-white font-bold">Digitar Código</h3>
+              <h3 className="text-textAccent font-bold">Digitar Código</h3>
               <X
                 onClick={() => setShowManualInput(false)}
-                className="text-gray-400 cursor-pointer"
+                className="text-textSecondary cursor-pointer"
               />
             </div>
             <form
@@ -252,11 +254,11 @@ export function ScanPage() {
                 value={manualInput}
                 onChange={(e) => setManualInput(e.target.value)}
                 autoFocus
-                className="flex-1 bg-gray-900 border border-gray-600 rounded-lg p-2 text-white"
+                className="flex-1 bg-gray-900 border border-gray-600 rounded-lg p-2 text-textAccent"
               />
               <button
                 type="submit"
-                className="bg-accent px-4 rounded-lg text-white font-bold"
+                className="bg-accent px-4 rounded-lg text-textAccent font-bold"
               >
                 OK
               </button>
@@ -268,12 +270,12 @@ export function ScanPage() {
       {isCameraOpen && (
         <div className="absolute inset-0 z-50 bg-black flex flex-col">
           <div className="p-4 flex justify-between items-center bg-gray-900 border-b border-gray-800">
-            <span className="text-white font-bold text-sm">
+            <span className="text-textAccent font-bold text-sm">
               Leitura por Câmera
             </span>
             <button
               onClick={() => setIsCameraOpen(false)}
-              className="bg-red-500 text-white p-1 rounded-full"
+              className="bg-red-500 text-textAccent p-1 rounded-full"
             >
               <X size={20} />
             </button>

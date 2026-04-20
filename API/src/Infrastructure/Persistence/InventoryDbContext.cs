@@ -31,11 +31,11 @@ public class InventoryDbContext : DbContext
             .HasIndex(c => c.InventorySessionId);
 
         modelBuilder.Entity<Product>()
-            .HasIndex(p => p.Ean)
+            .HasIndex(p => new { p.Ean, p.InventorySessionId })
             .IsUnique();
 
         modelBuilder.Entity<ProductLocation>()
-            .HasIndex(pl => pl.Barcode)
+            .HasIndex(pl => new { pl.InventorySessionId, pl.Barcode })
             .IsUnique();
 
         modelBuilder.Entity<ExpectedStock>()
@@ -49,5 +49,17 @@ public class InventoryDbContext : DbContext
             .WithMany()
             .HasForeignKey(es => es.InventorySessionId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Product>()
+            .HasOne(p => p.InventorySession)
+            .WithMany(s => s.Products)
+            .HasForeignKey(p => p.InventorySessionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ProductLocation>()
+            .HasOne(pl => pl.InventorySession)
+            .WithMany(s => s.ProductLocations)
+            .HasForeignKey(pl => pl.InventorySessionId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

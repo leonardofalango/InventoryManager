@@ -191,16 +191,16 @@ export function InventoryListPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-100">
+          <h1 className="text-2xl font-bold text-textPrimary">
             Gerenciamento de Inventários
           </h1>
-          <p className="text-gray-400">
+          <p className="text-textSecondary">
             Gerencie os clientes e cronogramas de contagem
           </p>
         </div>
         <button
           onClick={handleOpenCreate}
-          className="bg-accent hover:bg-accent/70 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+          className="bg-accent hover:bg-accent/70 text-textAccent px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
         >
           <Plus size={20} /> <span>Novo Cliente / Inventário</span>
         </button>
@@ -224,7 +224,7 @@ export function InventoryListPage() {
       </div>
 
       {isLoading ? (
-        <div className="text-center py-10 text-gray-400">
+        <div className="text-center py-10 text-textSecondary">
           Carregando inventários...
         </div>
       ) : (
@@ -247,10 +247,10 @@ export function InventoryListPage() {
                       <MapPin size={24} />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-lg text-white group-hover:text-accent flex items-center gap-2">
+                      <h3 className="font-semibold text-lg text-textAccent group-hover:text-accent flex items-center gap-2">
                         {session.clientName}
                       </h3>
-                      <div className="flex items-center gap-4 text-sm text-gray-400 mt-1">
+                      <div className="flex items-center gap-4 text-sm text-textSecondary mt-1">
                         <span className="flex items-center gap-1">
                           <Calendar size={14} />{" "}
                           {new Date(session.startDate).toLocaleString("pt-BR", {
@@ -294,7 +294,7 @@ export function InventoryListPage() {
                           <CheckCircle size={16} /> Finalizar
                         </button>
                       )}
-                      <button className="text-gray-400 hover:text-white ml-2 flex items-center gap-1">
+                      <button className="text-textSecondary hover:text-textAccent ml-2 flex items-center gap-1">
                         <Edit3 size={18} />
                       </button>
                     </div>
@@ -310,7 +310,7 @@ export function InventoryListPage() {
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-sm">
           <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 w-full max-w-lg shadow-2xl">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-white">
+              <h2 className="text-xl font-bold text-textAccent">
                 {isEditModalOpen ? "Detalhes do Inventário" : "Novo Inventário"}
               </h2>
               <button
@@ -318,7 +318,7 @@ export function InventoryListPage() {
                   setIsCreateModalOpen(false);
                   setIsEditModalOpen(false);
                 }}
-                className="text-gray-400 hover:text-white"
+                className="text-textSecondary hover:text-textAccent"
               >
                 <X size={24} />
               </button>
@@ -342,7 +342,7 @@ export function InventoryListPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, clientName: e.target.value })
                   }
-                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-accent"
+                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-textAccent focus:outline-none focus:border-accent"
                 />
               </div>
 
@@ -356,7 +356,7 @@ export function InventoryListPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, teamId: e.target.value })
                   }
-                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-accent"
+                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-textAccent focus:outline-none focus:border-accent"
                 >
                   <option value="">Nenhuma equipe selecionada</option>
                   {teams.map((t) => (
@@ -380,7 +380,7 @@ export function InventoryListPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, startDate: e.target.value })
                     }
-                    className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-accent"
+                    className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-textAccent focus:outline-none focus:border-accent"
                   />
                 </div>
                 <div>
@@ -394,7 +394,7 @@ export function InventoryListPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, endDate: e.target.value })
                     }
-                    className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-accent"
+                    className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-textAccent focus:outline-none focus:border-accent"
                   />
                 </div>
               </div>
@@ -402,19 +402,19 @@ export function InventoryListPage() {
               {isEditModalOpen && selectedSession && (
                 <div className="mt-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700 flex justify-between text-sm">
                   <div>
-                    <p className="text-gray-400">Total de Lançamentos</p>
-                    <p className="text-white font-bold text-lg">
+                    <p className="text-textSecondary">Total de Lançamentos</p>
+                    <p className="text-textAccent font-bold text-lg">
                       {selectedSession.totalItemsCounted}
                     </p>
                   </div>
                   <div>
-                    <p className="text-gray-400">Produtos Únicos</p>
-                    <p className="text-white font-bold text-lg">
+                    <p className="text-textSecondary">Produtos Únicos</p>
+                    <p className="text-textAccent font-bold text-lg">
                       {selectedSession.uniqueItemsCounted}
                     </p>
                   </div>
                   <div>
-                    <p className="text-gray-400">Status Atual</p>
+                    <p className="text-textSecondary">Status Atual</p>
                     <p
                       className={`font-bold text-lg ${getStatusInfo(selectedSession.status).color.split(" ")[1]}`}
                     >
@@ -441,7 +441,7 @@ export function InventoryListPage() {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="bg-accent hover:bg-accent/70 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
+                    className="bg-accent hover:bg-accent/70 text-textAccent px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
                   >
                     {isSubmitting
                       ? "Salvando..."

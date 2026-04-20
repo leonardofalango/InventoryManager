@@ -12,7 +12,9 @@ export function PreviewTable({ data, preview }: Props) {
   return (
     <div className="border rounded-lg overflow-hidden shadow-sm bg-gray-900 mt-6">
       <div className="p-4 bg-gray-900 border-b flex justify-between items-center">
-        <h3 className="font-semibold text-white">Pré-visualização dos Dados</h3>
+        <h3 className="font-semibold text-textAccent">
+          Pré-visualização dos Dados
+        </h3>
         {preview > 0 && (
           <span className="text-s text-gray-300">
             Mostrando os primeiros {preview} registros

@@ -80,7 +80,7 @@ export function AppLayout() {
   return (
     <div className="flex h-screen bg-gray-900">
       {user?.role !== "COUNTER" && (
-        <aside className="w-64 bg-primary text-white flex flex-col hidden md:flex">
+        <aside className="w-64 bg-primary text-textAccent flex flex-col hidden md:flex">
           <div className="p-6 border-b border-gray-700">
             <img src={logostring} alt="Inventory Manager" />
           </div>
@@ -97,8 +97,8 @@ export function AppLayout() {
                   className={clsx(
                     "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors",
                     isActive
-                      ? "bg-accent text-white"
-                      : "text-gray-400 hover:bg-gray-800 hover:text-white",
+                      ? "bg-accent text-textAccent"
+                      : "text-textSecondary hover:bg-gray-800 hover:text-textAccent",
                   )}
                 >
                   <Icon size={20} />
@@ -122,7 +122,7 @@ export function AppLayout() {
 
       <main className="flex-1 overflow-auto py-2 flex flex-col">
         <header className="bg-gray-900 shadow-sm h-20 md:h-20 flex items-center px-4 md:px-8 justify-between shrink-0 border-b border-gray-800">
-          <h2 className="text-white text-lg flex items-center gap-4">
+          <h2 className="text-textAccent text-lg flex items-center gap-4">
             {user?.role === "COUNTER" && (
               <img
                 src={logostring}

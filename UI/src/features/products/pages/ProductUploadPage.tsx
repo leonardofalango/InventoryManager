@@ -23,6 +23,8 @@ export function ProductUploadPage() {
     "idle" | "success" | "error"
   >("idle");
   const [productData, setProductData] = useState<Product[]>([]);
+  const [selectedSessionId, setSelectedSessionId] = useState<string>("");
+  const [sessions, setSessions] = useState<any[]>([]);
 
   const showFeedback = useFeedbackStore((state) => state.showFeedback);
 
@@ -34,9 +36,18 @@ export function ProductUploadPage() {
       console.error("Erro ao buscar produtos:", error);
     }
   };
+  const fetchSessions = async () => {
+    try {
+      const response = await api.get("/InventorySession");
+      setSessions(response.data);
+    } catch (error) {
+      console.error("Erro ao buscar inventários:", error);
+    }
+  };
 
   useEffect(() => {
     fetchProducts();
+    fetchSessions();
   }, []);
 
   const handleFile = (selectedFile: File) => {
@@ -91,11 +102,22 @@ export function ProductUploadPage() {
 
   const handleUpload = async () => {
     if (!file || previewData.length === 0) return;
+
+    if (!selectedSessionId) {
+      return showFeedback(
+        "Selecione um inventário para associar os produtos.",
+        "error",
+      );
+    }
     setIsUploading(true);
 
     try {
-      await api.post("/import/products", previewData);
+      await api.post(
+        `/Product/import?inventorySessionId=${selectedSessionId}`,
+        previewData,
+      );
       setUploadStatus("success");
+
       setTimeout(() => {
         setFile(null);
         setPreviewData([]);
@@ -104,6 +126,7 @@ export function ProductUploadPage() {
       }, 2000);
     } catch (error) {
       console.error("Erro ao importar produtos:", error);
+      showFeedback("Erro ao importar produtos", "error");
       setUploadStatus("error");
     } finally {
       setIsUploading(false);
@@ -113,12 +136,30 @@ export function ProductUploadPage() {
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-300">
+        <h1 className="text-2xl font-bold text-textPrimary">
           Importação de Produtos
         </h1>
-        <p className="text-gray-400">
+        <p className="text-textSecondary">
           Faça upload da lista de produtos (CSV) para iniciar o inventário.
         </p>
+      </div>
+
+      <div className="rounded-md flex flex-row w-full p-2">
+        <label className="block text-lg font-medium mb-1 flex-grow text-textPrimary">
+          Selecione o Inventário de Destino
+        </label>
+        <select
+          className="p-2 border rounded bg-gray-700 text-textAccent focus:outline-none focus:ring-2 focus:ring-accent"
+          value={selectedSessionId}
+          onChange={(e) => setSelectedSessionId(e.target.value)}
+        >
+          <option value="">Escolha um inventário</option>
+          {sessions.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.clientName}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Drag & Drop */}
@@ -157,8 +198,10 @@ export function ProductUploadPage() {
           ) : file ? (
             <>
               <FileSpreadsheet className="w-16 h-16 text-accent mb-4" />
-              <h3 className="text-lg font-medium text-white">{file.name}</h3>
-              <p className="text-sm text-gray-400 mb-4">
+              <h3 className="text-lg font-medium text-textAccent">
+                {file.name}
+              </h3>
+              <p className="text-sm text-textSecondary mb-4">
                 {(file.size / 1024).toFixed(2)} KB
               </p>
               <button
@@ -167,7 +210,7 @@ export function ProductUploadPage() {
                   handleUpload();
                 }}
                 disabled={isUploading}
-                className="z-50 pointer-events-auto bg-red-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center gap-2"
+                className="z-50 pointer-events-auto bg-red-600 text-textAccent px-6 py-2 rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center gap-2"
               >
                 {isUploading ? (
                   <Loader2 className="animate-spin" />
@@ -180,10 +223,10 @@ export function ProductUploadPage() {
           ) : (
             <>
               <UploadCloud className="w-16 h-16 text-gray-500 mb-4" />
-              <h3 className="text-lg font-medium text-white">
+              <h3 className="text-lg font-medium text-textAccent">
                 Arraste seu arquivo CSV aqui
               </h3>
-              <p className="text-sm text-gray-400 mt-2">
+              <p className="text-sm text-textSecondary mt-2">
                 ou clique para selecionar do computador
               </p>
             </>

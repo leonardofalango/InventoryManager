@@ -10,9 +10,9 @@ import { ScanPage } from "../features/scan/pages/ScanPage";
 import { useAuthStore } from "../store/authStore";
 import type { JSX } from "react";
 import type { Role } from "../types";
-import { LabelManagementPage } from "../features/label/pages/LabelManagementPage";
 import { RecoveryPage } from "../features/auth/pages/RecoveryPage";
 import { ChangePasswordPage } from "../features/auth/pages/ChangePassword";
+import { LabelManagementPage } from "../features/label/pages/LabelManagementPage";
 
 const RoleProtectedRoute = ({
   children,

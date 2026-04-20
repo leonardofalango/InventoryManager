@@ -11,7 +11,7 @@ export function ToastContainer() {
         <div
           key={n.id}
           className={clsx(
-            "flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg text-white min-w-[300px] animate-in slide-in-from-right",
+            "flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg text-textAccent min-w-[300px] animate-in slide-in-from-right",
             n.type === "success" && "bg-green-600",
             n.type === "error" && "bg-red-600",
             n.type === "info" && "bg-blue-600",

@@ -220,7 +220,7 @@ export function StockUploadPage() {
   return (
     <div className="max-w-5xl mx-auto pb-10">
       {/* <div className="bg-gray-800 px-4 py-2 rounded-lg border border-gray-700 flex items-center gap-3">
-        <span className="text-gray-400 text-sm">Inventário Ativo:</span>
+        <span className="text-textSecondary text-sm">Inventário Ativo:</span>
         <span className="text-green-400 font-semibold flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
           {clientName}
@@ -229,10 +229,10 @@ export function StockUploadPage() {
       <div className="mb-8 flex justify-between items-end">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-100">
+            <h1 className="text-2xl font-bold text-textPrimary">
               Gerenciamento de Equipe
             </h1>
-            <p className="text-gray-400">
+            <p className="text-textSecondary">
               Gerencie times e prestadores de serviço
             </p>
           </div>
@@ -240,13 +240,13 @@ export function StockUploadPage() {
           <div className="flex gap-2">
             <button
               onClick={() => setViewMode("manage")}
-              className={`px-4 py-2 rounded-lg transition-colors border ${viewMode === "manage" ? "bg-accent text-white border-accent" : "bg-gray-800 text-gray-300 border-gray-600"}`}
+              className={`px-4 py-2 rounded-lg transition-colors border ${viewMode === "manage" ? "bg-accent text-textAccent border-accent" : "bg-gray-800 text-gray-300 border-gray-600"}`}
             >
               Gerenciar Estoque
             </button>
             <button
               onClick={() => setViewMode("upload")}
-              className={`px-4 py-2 rounded-lg transition-colors border ${viewMode === "upload" ? "bg-accent text-white border-accent" : "bg-gray-800 text-gray-300 border-gray-600"}`}
+              className={`px-4 py-2 rounded-lg transition-colors border ${viewMode === "upload" ? "bg-accent text-textAccent border-accent" : "bg-gray-800 text-gray-300 border-gray-600"}`}
             >
               Upload
             </button>
@@ -304,14 +304,16 @@ export function StockUploadPage() {
             ) : file ? (
               <>
                 <FileSpreadsheet className="w-16 h-16 text-accent mb-4" />
-                <h3 className="text-lg font-medium text-white">{file.name}</h3>
+                <h3 className="text-lg font-medium text-textAccent">
+                  {file.name}
+                </h3>
                 <button
                   onClick={(e) => {
                     e.preventDefault();
                     handleUpload();
                   }}
                   disabled={isUploading || !sessionId}
-                  className="mt-4 z-50 pointer-events-auto bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 flex items-center gap-2"
+                  className="mt-4 z-50 pointer-events-auto bg-blue-600 text-textAccent px-6 py-2 rounded-lg font-medium hover:bg-blue-700 flex items-center gap-2"
                 >
                   {isUploading ? (
                     <Loader2 className="animate-spin" />
@@ -324,7 +326,7 @@ export function StockUploadPage() {
             ) : (
               <>
                 <UploadCloud className="w-16 h-16 text-gray-500 mb-4" />
-                <h3 className="text-lg font-medium text-white">
+                <h3 className="text-lg font-medium text-textAccent">
                   Arraste seu arquivo CSV aqui
                 </h3>
               </>
@@ -335,7 +337,7 @@ export function StockUploadPage() {
         <div className="bg-gray-800/50 border border-gray-700 rounded-xl overflow-hidden">
           <div className="p-4 border-b border-gray-700 flex gap-4">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-textSecondary w-5 h-5" />
               <input
                 type="text"
                 placeholder="Buscar por EAN ou Nome do Produto..."
@@ -344,13 +346,13 @@ export function StockUploadPage() {
                   setSearch(e.target.value);
                   setPage(1);
                 }}
-                className="w-full pl-10 pr-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-accent"
+                className="w-full pl-10 pr-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-textAccent focus:ring-2 focus:ring-accent"
               />
             </div>
           </div>
 
           <table className="w-full text-left text-sm text-gray-300">
-            <thead className="bg-gray-900/50 text-gray-400 uppercase text-xs">
+            <thead className="bg-gray-900/50 text-textSecondary uppercase text-xs">
               <tr>
                 <th className="px-6 py-4 font-medium">EAN</th>
                 <th className="px-6 py-4 font-medium">Produto</th>
@@ -372,13 +374,13 @@ export function StockUploadPage() {
                   <td className="px-6 py-4 flex justify-end gap-3">
                     <button
                       onClick={() => openModal(item)}
-                      className="p-2 text-gray-400 hover:text-blue-400 rounded-lg hover:bg-gray-700/50 transition-colors"
+                      className="p-2 text-textSecondary hover:text-blue-400 rounded-lg hover:bg-gray-700/50 transition-colors"
                     >
                       <Edit2 size={18} />
                     </button>
                     <button
                       onClick={() => handleDeleteItem(item.id)}
-                      className="p-2 text-gray-400 hover:text-red-400 rounded-lg hover:bg-gray-700/50 transition-colors"
+                      className="p-2 text-textSecondary hover:text-red-400 rounded-lg hover:bg-gray-700/50 transition-colors"
                     >
                       <Trash2 size={18} />
                     </button>
@@ -389,7 +391,7 @@ export function StockUploadPage() {
           </table>
 
           {/* Paginação */}
-          <div className="p-4 border-t border-gray-700 flex items-center justify-between text-sm text-gray-400">
+          <div className="p-4 border-t border-gray-700 flex items-center justify-between text-sm text-textSecondary">
             <span>
               Mostrando página {page} de {totalPages || 1}
             </span>
@@ -418,19 +420,19 @@ export function StockUploadPage() {
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-gray-800 rounded-xl max-w-md w-full border border-gray-700 overflow-hidden shadow-2xl">
             <div className="p-4 border-b border-gray-700 flex justify-between items-center">
-              <h3 className="text-lg font-medium text-white">
+              <h3 className="text-lg font-medium text-textAccent">
                 {editingItem ? "Editar Estoque" : "Novo Item de Estoque"}
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="text-gray-400 hover:text-white"
+                className="text-textSecondary hover:text-textAccent"
               >
                 <X size={20} />
               </button>
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">
+                <label className="block text-sm font-medium text-textSecondary mb-1">
                   Código EAN
                 </label>
                 <input
@@ -439,12 +441,12 @@ export function StockUploadPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, newEan: e.target.value })
                   }
-                  className="w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white"
+                  className="w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-textAccent"
                   placeholder="Ex: 7891010101010"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">
+                <label className="block text-sm font-medium text-textSecondary mb-1">
                   Quantidade Esperada
                 </label>
                 <input
@@ -456,20 +458,20 @@ export function StockUploadPage() {
                       expectedQuantity: parseInt(e.target.value) || 0,
                     })
                   }
-                  className="w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white"
+                  className="w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-textAccent"
                 />
               </div>
             </div>
             <div className="p-4 border-t border-gray-700 bg-gray-900/50 flex justify-end gap-3">
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
+                className="px-4 py-2 text-gray-300 hover:text-textAccent transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleSaveItem}
-                className="px-4 py-2 bg-accent text-white font-medium rounded-lg hover:bg-accent/90 transition-colors"
+                className="px-4 py-2 bg-accent text-textAccent font-medium rounded-lg hover:bg-accent/90 transition-colors"
               >
                 Salvar
               </button>
