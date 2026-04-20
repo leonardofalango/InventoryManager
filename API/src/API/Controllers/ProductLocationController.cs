@@ -31,7 +31,10 @@ public class ProductLocationController : ControllerBase
             .Include(pl => pl.InventorySession)
             .Where(
                 pl => pl.InventorySessionId == inventorySessionId
-            ).ToListAsync();
+            ).OrderByDescending(
+                pl => pl.Barcode
+            )
+            .ToListAsync();
             return Ok(locations);
         }
         catch (Exception ex)

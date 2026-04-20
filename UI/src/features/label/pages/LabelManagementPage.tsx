@@ -1,5 +1,12 @@
 import { useState, useEffect } from "react";
-import { Tag, Plus, Link as LinkIcon, Loader2 } from "lucide-react";
+import {
+  Tag,
+  Plus,
+  Link as LinkIcon,
+  Loader2,
+  Trash2,
+  List,
+} from "lucide-react";
 import { useFeedbackStore } from "../../../store/feedbackStore";
 import { api } from "../../../lib/axios";
 
@@ -11,7 +18,7 @@ interface InventorySession {
 interface Label {
   id: string;
   barcode: string;
-  inventorySession: InventorySession;
+  inventorySessionId: string;
 }
 
 export function LabelManagementPage() {
@@ -21,11 +28,13 @@ export function LabelManagementPage() {
   const [loadingLabels, setLoadingLabels] = useState(false);
   const [labels, setLabels] = useState<Label[]>([]);
 
-  // const [generateCount, setGenerateCount] = useState(100);
-
   const [selectedSession, setSelectedSession] = useState("");
   const [startRange, setStartRange] = useState(1);
   const [endRange, setEndRange] = useState(100);
+
+  const [newBarcode, setNewBarcode] = useState("");
+
+  const [activeTab, setActiveTab] = useState<"bulk" | "manage">("bulk");
 
   useEffect(() => {
     fetchSessions();
@@ -42,7 +51,8 @@ export function LabelManagementPage() {
 
   const fetchLabels = async () => {
     if (!selectedSession) {
-      return showFeedback("Selecione um inventário", "error");
+      setLabels([]);
+      return;
     }
     try {
       setLoadingLabels(true);
@@ -50,7 +60,6 @@ export function LabelManagementPage() {
         `/ProductLocation/labels/${selectedSession}`,
       );
       setLabels(response.data);
-      console.log(response.data);
     } catch (error) {
       showFeedback("Erro ao carregar etiquetas", "error");
     } finally {
@@ -61,21 +70,6 @@ export function LabelManagementPage() {
   useEffect(() => {
     fetchLabels();
   }, [selectedSession]);
-
-  // const handleCreateBatch = async () => {
-  //   setLoading(true);
-  //   try {
-  //     await api.post(`/ProductLocation/create-locations/${generateCount}`);
-  //     showFeedback(
-  //       `${generateCount} etiquetas geradas com sucesso!`,
-  //       "success",
-  //     );
-  //   } catch (error) {
-  //     showFeedback("Erro ao gerar etiquetas", "error");
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
 
   const handleCreateAndSetLocations = async () => {
     if (!selectedSession)
@@ -91,10 +85,45 @@ export function LabelManagementPage() {
         },
       );
       showFeedback("Etiquetas vinculadas ao inventário!", "success");
+      fetchLabels();
     } catch (error) {
       showFeedback("Erro ao vincular etiquetas.", "error");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAddSingleLabel = async () => {
+    if (!selectedSession)
+      return showFeedback("Selecione um inventário", "error");
+    if (!newBarcode.trim())
+      return showFeedback("Informe o código de barras", "error");
+
+    setLoading(true);
+    try {
+      await api.post(`/ProductLocation`, {
+        barcode: newBarcode.trim(),
+        inventorySessionId: selectedSession,
+      });
+      showFeedback("Etiqueta adicionada com sucesso!", "success");
+      setNewBarcode("");
+      fetchLabels();
+    } catch (error) {
+      showFeedback("Erro ao adicionar etiqueta.", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteLabel = async (id: string) => {
+    if (!window.confirm("Deseja realmente remover esta etiqueta?")) return;
+
+    try {
+      await api.delete(`/ProductLocation/${id}`);
+      showFeedback("Etiqueta removida!", "success");
+      fetchLabels();
+    } catch (error) {
+      showFeedback("Erro ao remover etiqueta.", "error");
     }
   };
 
@@ -104,99 +133,177 @@ export function LabelManagementPage() {
         <Tag className="w-6 h-6 " /> Gestão de Etiquetas
       </h1>
 
-      <div className="grid grid-cols-1 gap-6">
-        {/* <div className="bg-white p-6 rounded-lg shadow border border-gray-200">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <Plus className="w-5 h-5 text-blue-600" /> Gerar Novas Etiquetas
-          </h2>
-          <p className="text-sm text-gray-500 mb-4">
-            Gera etiquetas sequenciais no padrão INV0001, INV0002...
-          </p>
-          <div className="space-y-4">
-            <label className="block text-sm font-medium text-gray-700">
-              Quantidade
-            </label>
-            <input
-              type="number"
-              value={generateCount}
-              onChange={(e) => setGenerateCount(Number(e.target.value))}
-              className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
-            />
+      <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
+        <label className="block text-sm font-medium text-textPrimary mb-2">
+          Inventário de Destino
+        </label>
+        <select
+          value={selectedSession}
+          onChange={(e) => setSelectedSession(e.target.value)}
+          className="w-full p-2 border rounded bg-gray-700 border-gray-600 text-textAccent"
+        >
+          <option value="">Selecione um inventário...</option>
+          {sessions.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.clientName}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {selectedSession && (
+        <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+          <div className="flex border-b border-gray-700">
             <button
-              onClick={handleCreateBatch}
-              disabled={loading}
-              className="w-full bg-blue-600 text-textAccent py-2 rounded hover:bg-blue-700 flex justify-center items-center gap-2"
+              onClick={() => setActiveTab("bulk")}
+              className={`flex-1 flex items-center justify-center gap-2 py-4 text-sm font-medium transition-colors ${
+                activeTab === "bulk"
+                  ? "bg-gray-700 text-accent border-b-2 border-accent"
+                  : "text-gray-400 hover:text-gray-200 hover:bg-gray-700/50"
+              }`}
             >
-              {loading ? (
-                <Loader2 className="animate-spin w-5 h-5" />
-              ) : (
-                "Gerar Etiquetas"
-              )}
+              <LinkIcon className="w-4 h-4" />
+              Vincular em Massa
+            </button>
+            <button
+              onClick={() => setActiveTab("manage")}
+              className={`flex-1 flex items-center justify-center gap-2 py-4 text-sm font-medium transition-colors ${
+                activeTab === "manage"
+                  ? "bg-gray-700 text-accent border-b-2 border-accent"
+                  : "text-gray-400 hover:text-gray-200 hover:bg-gray-700/50"
+              }`}
+            >
+              <List className="w-4 h-4" />
+              Gerenciar Etiquetas
             </button>
           </div>
-        </div> */}
 
-        <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-textAccent">
-            <LinkIcon className="w-5 h-5 text-green-600" /> Criar e Vincular ao
-            Inventário
-          </h2>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-textPrimary">
-                Inventário
-              </label>
-              <select
-                value={selectedSession}
-                onChange={(e) => setSelectedSession(e.target.value)}
-                className="w-full p-2 border rounded mt-1 bg-gray-700 border-gray-600 text-textAccent"
-              >
-                <option value="">Selecione um inventário...</option>
-                {sessions.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.clientName}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-textPrimary">
-                  De (Número)
-                </label>
-                <input
-                  type="number"
-                  value={startRange}
-                  onChange={(e) => setStartRange(Number(e.target.value))}
-                  className="w-full p-2 border rounded bg-gray-700 border-gray-600 text-textAccent"
-                />
+          <div className="p-6">
+            {activeTab === "bulk" && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-textPrimary">
+                      De (Número)
+                    </label>
+                    <input
+                      type="number"
+                      value={startRange}
+                      onChange={(e) => setStartRange(Number(e.target.value))}
+                      className="w-full p-2 border rounded bg-gray-700 border-gray-600 text-textAccent mt-1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-textPrimary">
+                      Até (Número)
+                    </label>
+                    <input
+                      type="number"
+                      value={endRange}
+                      onChange={(e) => setEndRange(Number(e.target.value))}
+                      className="w-full p-2 border rounded bg-gray-700 border-gray-600 text-textAccent mt-1"
+                    />
+                  </div>
+                </div>
+                <button
+                  onClick={handleCreateAndSetLocations}
+                  disabled={loading}
+                  className="w-full bg-accent text-textAccent font-semibold py-2 rounded hover:bg-accentHover flex justify-center items-center gap-2 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
+                >
+                  {loading ? (
+                    <Loader2 className="animate-spin w-5 h-5" />
+                  ) : (
+                    "Vincular Etiquetas em Lote"
+                  )}
+                </button>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-textPrimary">
-                  Até (Número)
-                </label>
-                <input
-                  type="number"
-                  value={endRange}
-                  onChange={(e) => setEndRange(Number(e.target.value))}
-                  className="w-full p-2 border rounded bg-gray-700 border-gray-600 text-textAccent"
-                />
+            )}
+
+            {activeTab === "manage" && (
+              <div className="space-y-6">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="INV0001 ou código customizado..."
+                    value={newBarcode}
+                    onChange={(e) => setNewBarcode(e.target.value)}
+                    className="flex-1 p-2 border rounded bg-gray-700 border-gray-600 text-textAccent focus:outline-none focus:border-accent"
+                  />
+                  <button
+                    onClick={handleAddSingleLabel}
+                    disabled={loading || !newBarcode.trim()}
+                    className="bg-accent text-textAccent px-4 py-2 rounded hover:bg-accentHover flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? (
+                      <Loader2 className="animate-spin w-5 h-5" />
+                    ) : (
+                      <Plus className="w-5 h-5" />
+                    )}
+                    Adicionar
+                  </button>
+                </div>
+
+                <div className="border border-gray-700 rounded-lg overflow-hidden">
+                  <table className="w-full text-left text-sm text-gray-300">
+                    <thead className="bg-gray-900 text-gray-400">
+                      <tr>
+                        <th className="px-4 py-3 font-medium">
+                          Código de Barras
+                        </th>
+                        <th className="px-4 py-3 font-medium w-24 text-center">
+                          Ações
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-700">
+                      {loadingLabels ? (
+                        <tr>
+                          <td
+                            colSpan={2}
+                            className="px-4 py-8 text-center text-gray-500"
+                          >
+                            <Loader2 className="w-6 h-6 animate-spin mx-auto" />
+                          </td>
+                        </tr>
+                      ) : labels.length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={2}
+                            className="px-4 py-8 text-center text-gray-500"
+                          >
+                            Nenhuma etiqueta vinculada a este inventário.
+                          </td>
+                        </tr>
+                      ) : (
+                        labels.map((label) => (
+                          <tr key={label.id} className="hover:bg-gray-700/50">
+                            <td className="px-4 py-3 font-medium text-textAccent">
+                              {label.barcode}
+                            </td>
+                            <td className="px-4 py-3 flex justify-center">
+                              <button
+                                onClick={() => handleDeleteLabel(label.id)}
+                                className="text-red-400 hover:text-red-300 p-1 rounded hover:bg-red-400/10 transition-colors"
+                                title="Remover Etiqueta"
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                <p className="text-sm text-gray-500 text-right">
+                  Total de etiquetas: <strong>{labels.length}</strong>
+                </p>
               </div>
-            </div>
-            <button
-              onClick={handleCreateAndSetLocations}
-              disabled={loading || !selectedSession}
-              className="w-full bg-accent text-textAccent font-semibold py-2 rounded hover:bg-accentHover flex justify-center items-center gap-2 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
-            >
-              {loading ? (
-                <Loader2 className="animate-spin w-5 h-5" />
-              ) : (
-                "Vincular Etiquetas"
-              )}
-            </button>
+            )}
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
