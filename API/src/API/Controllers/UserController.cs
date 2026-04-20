@@ -27,11 +27,12 @@ public class UserController : ControllerBase
             .Select(u => new
             {
                 u.Id,
+                u.Role,
                 u.Name,
                 u.Email,
-                u.Role,
+                password = u.Role == "COUNTER" ? u.PasswordString : null,
                 u.TeamId,
-                Team = u.Team
+                u.Team,
             })
             .ToListAsync();
 
@@ -46,7 +47,17 @@ public class UserController : ControllerBase
             return BadRequest("E-mail já cadastrado.");
         }
 
-        var newPass = Guid.NewGuid().ToString().Substring(0, 8);
+        string newPass;
+        if (request.Password != null && request.Role == "COUNTER")
+        {
+            newPass = request.Password;
+        }
+        else
+        {
+            newPass = Guid.NewGuid().ToString().Substring(0, 8);
+            await _mailService.SendEmailAsync(request.Email, "Bem-vindo ao sistema", $"Sua senha temporária é: {newPass}");
+        }
+
         var user = new User
         {
             Name = request.Name,
@@ -54,10 +65,10 @@ public class UserController : ControllerBase
             Role = request.Role,
             TeamId = request.TeamId,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPass),
+            PasswordString = request.Role == "COUNTER" ? newPass : null,
             isRecovery = true
         };
 
-        await _mailService.SendEmailAsync(user.Email, "Bem-vindo ao sistema", $"Sua senha temporária é: {newPass}");
 
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
@@ -77,7 +88,6 @@ public class UserController : ControllerBase
         existingUser.Name = user.Name;
         existingUser.Role = user.Role;
         existingUser.TeamId = user.TeamId;
-        Console.WriteLine($"TEAMID RECEBIDO: {user.TeamId}");
 
         try
         {
@@ -99,6 +109,7 @@ public class UserController : ControllerBase
         public string Name { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
         public string Role { get; set; } = "COUNTER";
+        public string? Password { get; set; } = null;
         public Guid TeamId { get; set; }
 
     }

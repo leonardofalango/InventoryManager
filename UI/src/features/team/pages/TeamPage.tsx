@@ -83,6 +83,7 @@ export function TeamPage() {
           name: newName,
           role: newRole,
           teamId: selectedTeamId || null,
+          password: newPassword || undefined,
         });
         showFeedback("Membro atualizado com sucesso!", "success");
       } else {
@@ -175,10 +176,10 @@ export function TeamPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-100">
+          <h1 className="text-2xl font-bold text-textPrimary">
             Gerenciamento de Equipe
           </h1>
-          <p className="text-gray-400">
+          <p className="text-textSecondary">
             Gerencie times e prestadores de serviço
           </p>
         </div>
@@ -186,13 +187,13 @@ export function TeamPage() {
         <div className="flex gap-2">
           <button
             onClick={() => setActiveTab("teams")}
-            className={`px-4 py-2 rounded-lg transition-colors border ${activeTab === "teams" ? "bg-accent text-white border-accent" : "bg-gray-800 text-gray-300 border-gray-600"}`}
+            className={`px-4 py-2 rounded-lg transition-colors border ${activeTab === "teams" ? "bg-accent text-textAccent border-accent" : "bg-gray-800 text-gray-300 border-gray-600"}`}
           >
             Times
           </button>
           <button
             onClick={() => setActiveTab("members")}
-            className={`px-4 py-2 rounded-lg transition-colors border ${activeTab === "members" ? "bg-accent text-white border-accent" : "bg-gray-800 text-gray-300 border-gray-600"}`}
+            className={`px-4 py-2 rounded-lg transition-colors border ${activeTab === "members" ? "bg-accent text-textAccent border-accent" : "bg-gray-800 text-gray-300 border-gray-600"}`}
           >
             Membros
           </button>
@@ -205,7 +206,7 @@ export function TeamPage() {
             {/* Barra de pesquisa de membros */}
             <div className="relative w-full sm:w-96">
               <Search
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-textSecondary"
                 size={18}
               />
               <input
@@ -213,12 +214,12 @@ export function TeamPage() {
                 placeholder="Buscar membro por nome ou email..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-10 pr-4 py-2 text-white focus:border-accent outline-none"
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-10 pr-4 py-2 text-textAccent focus:border-accent outline-none"
               />
             </div>
             <button
               onClick={openNewMemberModal}
-              className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg border border-gray-600 flex items-center gap-2 whitespace-nowrap"
+              className="bg-gray-700 hover:bg-gray-600 text-textAccent px-4 py-2 rounded-lg border border-gray-600 flex items-center gap-2 whitespace-nowrap"
             >
               <Plus size={18} /> Adicionar Membro
             </button>
@@ -227,7 +228,7 @@ export function TeamPage() {
           <div className="w-full flex justify-end">
             <button
               onClick={() => setShowTeamModal(true)}
-              className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg border border-gray-600 flex items-center gap-2"
+              className="bg-gray-700 hover:bg-gray-600 text-textAccent px-4 py-2 rounded-lg border border-gray-600 flex items-center gap-2"
             >
               <Plus size={18} /> Novo Time
             </button>
@@ -270,16 +271,21 @@ export function TeamPage() {
                           </div>
 
                           <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-700 to-gray-600 flex items-center justify-center text-white font-bold text-lg shrink-0">
+                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-700 to-gray-600 flex items-center justify-center text-textAccent font-bold text-lg shrink-0">
                               {member.name.charAt(0).toUpperCase()}
                             </div>
                             <div className="overflow-hidden">
-                              <h3 className="text-white font-medium group-hover:text-accent transition-colors truncate">
+                              <h3 className="text-textAccent font-medium group-hover:text-accent transition-colors truncate">
                                 {member.name}
                               </h3>
-                              <p className="text-sm text-gray-400 truncate">
+                              <p className="text-sm text-textSecondary truncate">
                                 {member.email}
                               </p>
+                              {member.password && (
+                                <span className="text-xs bg-green-900 px-2 py-1 rounded text-green-500 mt-2 inline-block border border-green-700">
+                                  Senha: {member.password}
+                                </span>
+                              )}
                               <span className="text-xs bg-gray-900 px-2 py-1 rounded text-gray-500 mt-2 inline-block border border-gray-700">
                                 {member.role === "MANAGER"
                                   ? "Gerente"
@@ -306,10 +312,10 @@ export function TeamPage() {
                   className="bg-gray-800 border border-gray-700 rounded-xl p-6 flex justify-between items-center"
                 >
                   <div>
-                    <h3 className="text-white font-medium text-lg">
+                    <h3 className="text-textAccent font-medium text-lg">
                       {team.name}
                     </h3>
-                    <p className="text-sm text-gray-400 mt-1">
+                    <p className="text-sm text-textSecondary mt-1">
                       {(team as any).members?.length || 0} membros
                     </p>
                   </div>
@@ -330,28 +336,29 @@ export function TeamPage() {
         </>
       )}
 
-      {/* Modais de Membro e Time continuam iguais... */}
       {showMemberModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-gray-800 p-6 rounded-lg w-full max-w-md border border-gray-700 shadow-xl">
-            <h2 className="text-xl font-bold text-white mb-4">
+            <h2 className="text-xl font-bold text-textAccent mb-4">
               {editingMember ? "Editar Membro" : "Novo Membro"}
             </h2>
 
             <form onSubmit={handleSaveMember} className="space-y-4">
               <div>
-                <label className="block text-sm text-gray-400 mb-1">Nome</label>
+                <label className="block text-sm text-textSecondary mb-1">
+                  Nome
+                </label>
                 <input
                   required
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
-                  className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white focus:border-accent outline-none"
+                  className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-textAccent focus:border-accent outline-none"
                   placeholder="Nome completo"
                 />
               </div>
 
               <div>
-                <label className="block text-sm text-gray-400 mb-1">
+                <label className="block text-sm text-textSecondary mb-1">
                   Email
                 </label>
                 <input
@@ -360,17 +367,35 @@ export function TeamPage() {
                   disabled={!!editingMember}
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
-                  className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white focus:border-accent outline-none"
+                  className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-textAccent focus:border-accent outline-none"
                   placeholder="email@exemplo.com"
                 />
               </div>
 
+              {newRole === "COUNTER" && (
+                <div>
+                  <label className="block text-sm text-textSecondary mb-1">
+                    Senha
+                  </label>
+                  <input
+                    required
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-textAccent focus:border-accent outline-none"
+                    placeholder="Senha"
+                  />
+                </div>
+              )}
+
               <div>
-                <label className="block text-sm text-gray-400 mb-1">Time</label>
+                <label className="block text-sm text-textSecondary mb-1">
+                  Time
+                </label>
                 <select
                   value={selectedTeamId}
                   onChange={(e) => setSelectedTeamId(e.target.value)}
-                  className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white focus:border-accent outline-none"
+                  className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-textAccent focus:border-accent outline-none"
                 >
                   <option value="">Sem Equipe</option>
                   {teams.map((team) => (
@@ -382,13 +407,13 @@ export function TeamPage() {
               </div>
 
               <div>
-                <label className="block text-sm text-gray-400 mb-1">
+                <label className="block text-sm text-textSecondary mb-1">
                   Função
                 </label>
                 <select
                   value={newRole}
                   onChange={(e) => setNewRole(e.target.value)}
-                  className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white focus:border-accent outline-none"
+                  className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-textAccent focus:border-accent outline-none"
                 >
                   <option value="COUNTER">Contador</option>
                   <option value="MANAGER">Gerente</option>
@@ -405,7 +430,7 @@ export function TeamPage() {
                 </button>
                 <button
                   type="submit"
-                  className="bg-accent hover:bg-blue-600 text-white px-4 py-2 rounded transition-colors font-medium"
+                  className="bg-accent hover:bg-blue-600 text-textAccent px-4 py-2 rounded transition-colors font-medium"
                 >
                   {editingMember ? "Salvar Alterações" : "Criar Membro"}
                 </button>
@@ -418,19 +443,19 @@ export function TeamPage() {
       {showTeamModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-gray-800 p-6 rounded-lg w-full max-w-sm border border-gray-700 shadow-xl">
-            <h2 className="text-xl font-bold text-white mb-4">
+            <h2 className="text-xl font-bold text-textAccent mb-4">
               Criar Novo Time
             </h2>
             <form onSubmit={handleAddTeam} className="space-y-4">
               <div>
-                <label className="block text-sm text-gray-400 mb-1">
+                <label className="block text-sm text-textSecondary mb-1">
                   Nome do Time
                 </label>
                 <input
                   required
                   value={newTeamName}
                   onChange={(e) => setNewTeamName(e.target.value)}
-                  className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white focus:border-accent outline-none"
+                  className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-textAccent focus:border-accent outline-none"
                   placeholder="Ex: Equipe Alpha"
                 />
               </div>
@@ -444,7 +469,7 @@ export function TeamPage() {
                 </button>
                 <button
                   type="submit"
-                  className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded font-medium transition-colors"
+                  className="bg-green-600 hover:bg-green-500 text-textAccent px-4 py-2 rounded font-medium transition-colors"
                 >
                   Criar Time
                 </button>

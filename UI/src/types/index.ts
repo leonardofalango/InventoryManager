@@ -12,6 +12,7 @@ export interface User {
   token: string;
   role: Role;
   team: Team;
+  password?: string;
 }
 
 export interface Product {
