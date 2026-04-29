@@ -1,0 +1,37 @@
+name: Deploy Backend EC2
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "API/**"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu # ou ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd /home/ubuntu/inventorymanager
+            git pull origin main
+
+            # Reconstrói a imagem Docker da API
+            cd API
+            docker build -t inventory-api .
+
+            # Para o container antigo (se existir)
+            docker stop api-container || true
+            docker rm api-container || true
+
+            # Roda o novo container na porta 80, em background (-d)
+            # Passando as variáveis de ambiente (Conexão RDS, JWT, etc)
+            docker run -d --name api-container -p 80:8080 \
+              -e "ConnectionStrings__DefaultConnection=${{ secrets.DB_CONNECTION_STRING }}" \
+              -e "Jwt__Key=${{ secrets.JWT_KEY }}" \
+              inventory-api
