@@ -16,9 +16,35 @@ public class ProductsController : ControllerBase
     public ProductsController(InventoryDbContext context) => _context = context;
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Product>>> GetProducts()
+    public async Task<ActionResult> GetProducts(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? search = null)
     {
-        var products = await _context.Products.ToListAsync();
-        return Ok(products);
+        var query = _context.Products.AsQueryable();
+
+        // Opcional: Busca por nome ou EAN caso queira implementar no front depois
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var searchLower = search.ToLower();
+            query = query.Where(p => p.Name.ToLower().Contains(searchLower) || p.Ean.Contains(searchLower));
+        }
+
+        var totalItems = await query.CountAsync();
+
+        var products = await query
+            .OrderBy(p => p.Name)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        return Ok(new
+        {
+            data = products,
+            totalItems,
+            page,
+            pageSize,
+            totalPages = (int)Math.Ceiling(totalItems / (double)pageSize)
+        });
     }
 }

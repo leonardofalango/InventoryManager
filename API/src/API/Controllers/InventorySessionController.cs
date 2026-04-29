@@ -223,11 +223,27 @@ public class InventorySessionController : ControllerBase
 
     [HttpGet]
     [Authorize(Roles = "ADMIN,MANAGER")]
-    public async Task<IActionResult> GetAllSessions()
+    public async Task<IActionResult> GetAllSessions(
+    [FromQuery] int page = 1,
+    [FromQuery] int pageSize = 10,
+    [FromQuery] string? search = null)
     {
-        var sessions = await _context.InventorySessions
+        var query = _context.InventorySessions
             .Include(s => s.Counts)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var searchLower = search.ToLower();
+            query = query.Where(s => s.ClientName.ToLower().Contains(searchLower));
+        }
+
+        var totalItems = await query.CountAsync();
+
+        var sessions = await query
             .OrderByDescending(s => s.StartDate)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Select(s => new
             {
                 s.Id,
@@ -241,7 +257,14 @@ public class InventorySessionController : ControllerBase
             })
             .ToListAsync();
 
-        return Ok(sessions);
+        return Ok(new
+        {
+            data = sessions,
+            totalItems,
+            page,
+            pageSize,
+            totalPages = (int)Math.Ceiling(totalItems / (double)pageSize)
+        });
     }
 
     [HttpPut("{id}/status")]
