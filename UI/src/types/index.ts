@@ -1,0 +1,44 @@
+export type Role = "ADMIN" | "MANAGER" | "COUNTER";
+
+export interface Team {
+  id: string;
+  name: string;
+}
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  token: string;
+  role: Role;
+  team: Team;
+  password?: string;
+}
+
+export interface Product {
+  ean: string;
+  name: string;
+  description: string;
+  category: string;
+  price: number;
+  stockQuantity: number;
+}
+
+export interface InventorySession {
+  id: string;
+  clientId: string;
+  clientName: string;
+  status: "OPEN" | "IN_PROGRESS" | "CLOSED" | "AUDIT";
+  startDate: string;
+  totalItemsCounted: number;
+  accuracy?: number;
+}
+
+export interface StockCount {
+  id: string;
+  productId: string;
+  sessionId: string;
+  quantity: number;
+  round: 1 | 2 | 3;
+  countedAt: string;
+}
