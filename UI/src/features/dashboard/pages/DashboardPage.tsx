@@ -45,8 +45,8 @@ export function DashboardPage() {
 
     fetchDashboardData();
 
-    // Atualiza a cada 5 segundos
-    const interval = setInterval(fetchDashboardData, 5000);
+    // Atualiza a cada 20 segundos
+    const interval = setInterval(fetchDashboardData, 20000);
     return () => clearInterval(interval);
   }, []);
 

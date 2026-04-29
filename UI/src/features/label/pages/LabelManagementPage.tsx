@@ -9,11 +9,7 @@ import {
 } from "lucide-react";
 import { useFeedbackStore } from "../../../store/feedbackStore";
 import { api } from "../../../lib/axios";
-
-interface InventorySession {
-  id: string;
-  clientName: string;
-}
+import { SessionAutocomplete } from "../../../components/common/SessionAutoComplete";
 
 interface Label {
   id: string;
@@ -23,53 +19,41 @@ interface Label {
 
 export function LabelManagementPage() {
   const showFeedback = useFeedbackStore((state) => state.showFeedback);
-  const [sessions, setSessions] = useState<InventorySession[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingLabels, setLoadingLabels] = useState(false);
   const [labels, setLabels] = useState<Label[]>([]);
 
+  // Estados para o novo Autocomplete
   const [selectedSession, setSelectedSession] = useState("");
+  const [selectedSessionName, setSelectedSessionName] = useState("");
+
   const [startRange, setStartRange] = useState(1);
   const [endRange, setEndRange] = useState(100);
-
   const [newBarcode, setNewBarcode] = useState("");
-
   const [activeTab, setActiveTab] = useState<"bulk" | "manage">("bulk");
 
+  // Busca etiquetas sempre que a sessão selecionada mudar
   useEffect(() => {
-    fetchSessions();
-  }, []);
+    const fetchLabels = async () => {
+      if (!selectedSession) {
+        setLabels([]);
+        return;
+      }
+      try {
+        setLoadingLabels(true);
+        const response = await api.get(
+          `/ProductLocation/labels/${selectedSession}`,
+        );
+        setLabels(response.data);
+      } catch (error) {
+        showFeedback("Erro ao carregar etiquetas", "error");
+      } finally {
+        setLoadingLabels(false);
+      }
+    };
 
-  const fetchSessions = async () => {
-    try {
-      const response = await api.get("/InventorySession");
-      setSessions(response.data);
-    } catch (error) {
-      showFeedback("Erro ao carregar inventários", "error");
-    }
-  };
-
-  const fetchLabels = async () => {
-    if (!selectedSession) {
-      setLabels([]);
-      return;
-    }
-    try {
-      setLoadingLabels(true);
-      const response = await api.get(
-        `/ProductLocation/labels/${selectedSession}`,
-      );
-      setLabels(response.data);
-    } catch (error) {
-      showFeedback("Erro ao carregar etiquetas", "error");
-    } finally {
-      setLoadingLabels(false);
-    }
-  };
-
-  useEffect(() => {
     fetchLabels();
-  }, [selectedSession]);
+  }, [selectedSession, showFeedback]);
 
   const handleCreateAndSetLocations = async () => {
     if (!selectedSession)
@@ -85,7 +69,11 @@ export function LabelManagementPage() {
         },
       );
       showFeedback("Etiquetas vinculadas ao inventário!", "success");
-      fetchLabels();
+      // Forçar recarregamento das etiquetas
+      const response = await api.get(
+        `/ProductLocation/labels/${selectedSession}`,
+      );
+      setLabels(response.data);
     } catch (error) {
       showFeedback("Erro ao vincular etiquetas.", "error");
     } finally {
@@ -107,7 +95,10 @@ export function LabelManagementPage() {
       });
       showFeedback("Etiqueta adicionada com sucesso!", "success");
       setNewBarcode("");
-      fetchLabels();
+      const response = await api.get(
+        `/ProductLocation/labels/${selectedSession}`,
+      );
+      setLabels(response.data);
     } catch (error) {
       showFeedback("Erro ao adicionar etiqueta.", "error");
     } finally {
@@ -121,7 +112,7 @@ export function LabelManagementPage() {
     try {
       await api.delete(`/ProductLocation/${id}`);
       showFeedback("Etiqueta removida!", "success");
-      fetchLabels();
+      setLabels(labels.filter((l) => l.id !== id));
     } catch (error) {
       showFeedback("Erro ao remover etiqueta.", "error");
     }
@@ -137,22 +128,19 @@ export function LabelManagementPage() {
         <label className="block text-sm font-medium text-textPrimary mb-2">
           Inventário de Destino
         </label>
-        <select
-          value={selectedSession}
-          onChange={(e) => setSelectedSession(e.target.value)}
-          className="w-full p-2 border rounded bg-gray-700 border-gray-600 text-textAccent"
-        >
-          <option value="">Selecione um inventário...</option>
-          {sessions.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.clientName}
-            </option>
-          ))}
-        </select>
+        {/* Substituição do antigo <select> pelo Autocomplete */}
+        <SessionAutocomplete
+          selectedId={selectedSession}
+          selectedName={selectedSessionName}
+          onSelect={(id, name) => {
+            setSelectedSession(id);
+            setSelectedSessionName(name);
+          }}
+        />
       </div>
 
       {selectedSession && (
-        <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+        <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden animate-fade-in">
           <div className="flex border-b border-gray-700">
             <button
               onClick={() => setActiveTab("bulk")}
@@ -190,7 +178,7 @@ export function LabelManagementPage() {
                       type="number"
                       value={startRange}
                       onChange={(e) => setStartRange(Number(e.target.value))}
-                      className="w-full p-2 border rounded bg-gray-700 border-gray-600 text-textAccent mt-1"
+                      className="w-full p-2 border rounded bg-gray-700 border-gray-600 text-textAccent mt-1 focus:ring-1 focus:ring-accent outline-none"
                     />
                   </div>
                   <div>
@@ -201,14 +189,14 @@ export function LabelManagementPage() {
                       type="number"
                       value={endRange}
                       onChange={(e) => setEndRange(Number(e.target.value))}
-                      className="w-full p-2 border rounded bg-gray-700 border-gray-600 text-textAccent mt-1"
+                      className="w-full p-2 border rounded bg-gray-700 border-gray-600 text-textAccent mt-1 focus:ring-1 focus:ring-accent outline-none"
                     />
                   </div>
                 </div>
                 <button
                   onClick={handleCreateAndSetLocations}
                   disabled={loading}
-                  className="w-full bg-accent text-textAccent font-semibold py-2 rounded hover:bg-accentHover flex justify-center items-center gap-2 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
+                  className="w-full bg-accent text-textAccent font-semibold py-2 rounded hover:bg-accent/80 flex justify-center items-center gap-2 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
                 >
                   {loading ? (
                     <Loader2 className="animate-spin w-5 h-5" />
@@ -224,7 +212,7 @@ export function LabelManagementPage() {
                 <div className="flex gap-2">
                   <input
                     type="text"
-                    placeholder="INV0001 ou código customizado..."
+                    placeholder="Ex: INV0001"
                     value={newBarcode}
                     onChange={(e) => setNewBarcode(e.target.value)}
                     className="flex-1 p-2 border rounded bg-gray-700 border-gray-600 text-textAccent focus:outline-none focus:border-accent"
@@ -232,7 +220,7 @@ export function LabelManagementPage() {
                   <button
                     onClick={handleAddSingleLabel}
                     disabled={loading || !newBarcode.trim()}
-                    className="bg-accent text-textAccent px-4 py-2 rounded hover:bg-accentHover flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="bg-accent text-textAccent px-4 py-2 rounded hover:bg-accent/80 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {loading ? (
                       <Loader2 className="animate-spin w-5 h-5" />
@@ -277,7 +265,7 @@ export function LabelManagementPage() {
                       ) : (
                         labels.map((label) => (
                           <tr key={label.id} className="hover:bg-gray-700/50">
-                            <td className="px-4 py-3 font-medium text-textAccent">
+                            <td className="px-4 py-3 font-medium text-textAccent font-mono">
                               {label.barcode}
                             </td>
                             <td className="px-4 py-3 flex justify-center">
