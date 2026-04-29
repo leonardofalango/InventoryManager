@@ -1,3 +1,4 @@
+// src/features/stock/pages/StockUploadPage.tsx
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import Papa from "papaparse";
@@ -19,18 +20,20 @@ import type { ExpectedStockItem, StockCsvRow } from "../types/stock-types";
 import { clsx } from "clsx";
 import { api } from "../../../lib/axios";
 import { useFeedbackStore } from "../../../store/feedbackStore";
+import { SessionAutocomplete } from "../../../components/common/SessionAutoComplete"; // Importação do componente
 
 export function StockUploadPage() {
   const showFeedback = useFeedbackStore((state) => state.showFeedback);
   const { sessionId: routeSessionId } = useParams<{ sessionId: string }>();
-  const [clientName, setClientName] = useState("Carregando...");
 
   const [sessionId, setSessionId] = useState<string | undefined>(
     routeSessionId,
   );
+  const [clientName, setClientName] = useState("");
+
   const [isLoadingSession, setIsLoadingSession] = useState(!routeSessionId);
   const [viewMode, setViewMode] = useState<"loading" | "upload" | "manage">(
-    "loading",
+    routeSessionId ? "manage" : "loading",
   );
 
   const [stockItems, setStockItems] = useState<ExpectedStockItem[]>([]);
@@ -55,20 +58,23 @@ export function StockUploadPage() {
   const [formData, setFormData] = useState({ newEan: "", expectedQuantity: 0 });
 
   useEffect(() => {
-    if (!routeSessionId) {
+    if (!sessionId && !routeSessionId) {
       api
         .get("/inventorysession/active")
         .then((res) => {
           setClientName(res.data.clientName);
           setSessionId(res.data.id);
-          console.log("Sessão ativa encontrada:", clientName);
+          setViewMode("manage");
         })
-        .catch(() =>
-          showFeedback("Nenhum inventário ativo encontrado.", "error"),
-        )
+        .catch(() => {
+          showFeedback("Selecione um inventário para gerir o stock.", "idle");
+          setViewMode("upload"); // Fallback para modo upload se não houver ativo
+        })
         .finally(() => setIsLoadingSession(false));
+    } else {
+      setIsLoadingSession(false);
     }
-  }, [routeSessionId, showFeedback]);
+  }, [routeSessionId, sessionId, showFeedback]);
 
   const fetchStock = useCallback(async () => {
     if (!sessionId) return;
@@ -87,7 +93,7 @@ export function StockUploadPage() {
       }
     } catch (error) {
       console.error(error);
-      showFeedback("Erro ao buscar estoque.", "error");
+      showFeedback("Erro ao buscar stock.", "error");
     }
   }, [sessionId, page, search, showFeedback]);
 
@@ -139,7 +145,7 @@ export function StockUploadPage() {
 
       setUploadStatus("success");
       showFeedback(
-        response.data.message || "Estoque importado com sucesso!",
+        response.data.message || "Stock importado com sucesso!",
         "success",
       );
 
@@ -151,7 +157,7 @@ export function StockUploadPage() {
     } catch (error) {
       console.error(error);
       setUploadStatus("error");
-      showFeedback("Erro ao importar estoque.", "error");
+      showFeedback("Erro ao importar stock.", "error");
     } finally {
       setIsUploading(false);
     }
@@ -159,18 +165,22 @@ export function StockUploadPage() {
 
   const handleSaveItem = async () => {
     try {
-      const payload = {
-        newEan: formData.newEan,
-        expectedQuantity: Number(formData.expectedQuantity),
-      };
-
       if (editingItem) {
-        await api.put(`/stock/${editingItem.id}`, payload);
+        const payloadUpdate = {
+          newEan: formData.newEan,
+          expectedQuantity: Number(formData.expectedQuantity),
+        };
+        await api.put(`/stock/${editingItem.id}`, payloadUpdate);
         showFeedback("Item atualizado.", "success");
       } else {
-        await api.post(`/stock/${sessionId}`, payload);
+        const payloadCreate = {
+          ean: formData.newEan,
+          expectedQuantity: Number(formData.expectedQuantity),
+        };
+        await api.post(`/stock/${sessionId}`, payloadCreate);
         showFeedback("Item adicionado.", "success");
       }
+
       setIsModalOpen(false);
       fetchStock();
     } catch (error: any) {
@@ -183,7 +193,7 @@ export function StockUploadPage() {
 
   const handleDeleteItem = async (id: string) => {
     if (
-      confirm("Tem certeza que deseja remover este item do estoque esperado?")
+      confirm("Tem certeza que deseja remover este item do stock esperado?")
     ) {
       try {
         await api.delete(`/stock/${id}`);
@@ -209,7 +219,7 @@ export function StockUploadPage() {
     setIsModalOpen(true);
   };
 
-  if (isLoadingSession || viewMode === "loading") {
+  if (isLoadingSession) {
     return (
       <div className="flex justify-center items-center h-64">
         <Loader2 className="w-8 h-8 animate-spin text-accent" />
@@ -219,51 +229,65 @@ export function StockUploadPage() {
 
   return (
     <div className="max-w-5xl mx-auto pb-10">
-      {/* <div className="bg-gray-800 px-4 py-2 rounded-lg border border-gray-700 flex items-center gap-3">
-        <span className="text-textSecondary text-sm">Inventário Ativo:</span>
-        <span className="text-green-400 font-semibold flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-          {clientName}
-        </span>
-      </div> */}
-      <div className="mb-8 flex justify-between items-end">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-textPrimary">
-              Gerenciamento de Equipe
-            </h1>
-            <p className="text-textSecondary">
-              Gerencie times e prestadores de serviço
-            </p>
-          </div>
+      {/* Secção de Seleção de Inventário */}
+      <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 mb-8 space-y-2">
+        <label className="block text-sm font-medium text-textPrimary">
+          Inventário em Edição
+        </label>
+        <SessionAutocomplete
+          selectedId={sessionId}
+          selectedName={clientName}
+          onSelect={(id, name) => {
+            setSessionId(id);
+            setClientName(name);
+          }}
+        />
+      </div>
 
-          <div className="flex gap-2">
-            <button
-              onClick={() => setViewMode("manage")}
-              className={`px-4 py-2 rounded-lg transition-colors border ${viewMode === "manage" ? "bg-accent text-textAccent border-accent" : "bg-gray-800 text-gray-300 border-gray-600"}`}
-            >
-              Gerenciar Estoque
-            </button>
-            <button
-              onClick={() => setViewMode("upload")}
-              className={`px-4 py-2 rounded-lg transition-colors border ${viewMode === "upload" ? "bg-accent text-textAccent border-accent" : "bg-gray-800 text-gray-300 border-gray-600"}`}
-            >
-              Upload
-            </button>
-          </div>
+      <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-textPrimary">
+            Gerenciamento de Stock
+          </h1>
+          <p className="text-textSecondary">
+            Defina as quantidades esperadas para o inventário
+          </p>
         </div>
 
-        {viewMode === "manage" && (
+        <div className="flex gap-2">
+          <button
+            onClick={() => setViewMode("manage")}
+            className={`px-4 py-2 rounded-lg transition-colors border ${viewMode === "manage" ? "bg-accent text-textAccent border-accent" : "bg-gray-800 text-gray-300 border-gray-600"}`}
+          >
+            Gerenciar Itens
+          </button>
+          <button
+            onClick={() => setViewMode("upload")}
+            className={`px-4 py-2 rounded-lg transition-colors border ${viewMode === "upload" ? "bg-accent text-textAccent border-accent" : "bg-gray-800 text-gray-300 border-gray-600"}`}
+          >
+            Importar CSV
+          </button>
+        </div>
+      </div>
+
+      {sessionId && viewMode === "manage" && (
+        <div className="flex justify-end mb-4">
           <button
             onClick={() => openModal()}
             className="bg-accent text-gray-900 px-4 py-2 rounded-lg font-medium hover:bg-accent/90 flex items-center gap-2"
           >
             <Plus size={20} /> Adicionar Manualmente
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
-      {viewMode === "upload" ? (
+      {!sessionId ? (
+        <div className="text-center py-20 bg-gray-800/30 rounded-xl border border-dashed border-gray-700">
+          <p className="text-textSecondary">
+            Selecione um inventário acima para começar.
+          </p>
+        </div>
+      ) : viewMode === "upload" ? (
         <div
           className={clsx(
             "relative border-2 border-dashed rounded-xl p-12 text-center transition-all duration-200",
@@ -274,10 +298,6 @@ export function StockUploadPage() {
           )}
           onDragEnter={() => setDragActive(true)}
           onDragLeave={() => setDragActive(false)}
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragActive(true);
-          }}
           onDrop={(e) => {
             e.preventDefault();
             setDragActive(false);
@@ -291,7 +311,7 @@ export function StockUploadPage() {
               e.target.files?.[0] && handleFile(e.target.files[0])
             }
             accept=".csv"
-            disabled={isUploading || !sessionId}
+            disabled={isUploading}
           />
           <div className="flex flex-col items-center justify-center pointer-events-none">
             {uploadStatus === "success" ? (
@@ -312,8 +332,8 @@ export function StockUploadPage() {
                     e.preventDefault();
                     handleUpload();
                   }}
-                  disabled={isUploading || !sessionId}
-                  className="mt-4 z-50 pointer-events-auto bg-blue-600 text-textAccent px-6 py-2 rounded-lg font-medium hover:bg-blue-700 flex items-center gap-2"
+                  disabled={isUploading}
+                  className="mt-4 z-50 pointer-events-auto bg-accent text-textAccent px-6 py-2 rounded-lg font-medium hover:bg-accent/90 flex items-center gap-2"
                 >
                   {isUploading ? (
                     <Loader2 className="animate-spin" />
@@ -327,14 +347,17 @@ export function StockUploadPage() {
               <>
                 <UploadCloud className="w-16 h-16 text-gray-500 mb-4" />
                 <h3 className="text-lg font-medium text-textAccent">
-                  Arraste seu arquivo CSV aqui
+                  Arraste o arquivo CSV de stock aqui
                 </h3>
+                <p className="text-sm text-textSecondary mt-1">
+                  O arquivo deve conter as colunas 'ean' e 'quantidade'
+                </p>
               </>
             )}
           </div>
         </div>
       ) : (
-        <div className="bg-gray-800/50 border border-gray-700 rounded-xl overflow-hidden">
+        <div className="bg-gray-800/50 border border-gray-700 rounded-xl overflow-hidden animate-fade-in">
           <div className="p-4 border-b border-gray-700 flex gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-textSecondary w-5 h-5" />
@@ -374,13 +397,13 @@ export function StockUploadPage() {
                   <td className="px-6 py-4 flex justify-end gap-3">
                     <button
                       onClick={() => openModal(item)}
-                      className="p-2 text-textSecondary hover:text-blue-400 rounded-lg hover:bg-gray-700/50 transition-colors"
+                      className="p-2 text-textSecondary hover:text-blue-400 rounded-lg"
                     >
                       <Edit2 size={18} />
                     </button>
                     <button
                       onClick={() => handleDeleteItem(item.id)}
-                      className="p-2 text-textSecondary hover:text-red-400 rounded-lg hover:bg-gray-700/50 transition-colors"
+                      className="p-2 text-textSecondary hover:text-red-400 rounded-lg"
                     >
                       <Trash2 size={18} />
                     </button>
@@ -390,24 +413,22 @@ export function StockUploadPage() {
             </tbody>
           </table>
 
-          {/* Paginação */}
           <div className="p-4 border-t border-gray-700 flex items-center justify-between text-sm text-textSecondary">
             <span>
-              Mostrando página {page} de {totalPages || 1}
+              Página {page} de {totalPages || 1}
             </span>
-            <span>Total de itens: {totalItems}</span>
             <div className="flex gap-2">
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="p-2 rounded-lg hover:bg-gray-700 disabled:opacity-50"
+                className="p-2 hover:bg-gray-700 rounded-lg disabled:opacity-50"
               >
                 <ChevronLeft size={20} />
               </button>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages}
-                className="p-2 rounded-lg hover:bg-gray-700 disabled:opacity-50"
+                className="p-2 hover:bg-gray-700 rounded-lg disabled:opacity-50"
               >
                 <ChevronRight size={20} />
               </button>
@@ -417,11 +438,11 @@ export function StockUploadPage() {
       )}
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800 rounded-xl max-w-md w-full border border-gray-700 overflow-hidden shadow-2xl">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-gray-800 rounded-xl max-w-md w-full border border-gray-700 shadow-2xl">
             <div className="p-4 border-b border-gray-700 flex justify-between items-center">
               <h3 className="text-lg font-medium text-textAccent">
-                {editingItem ? "Editar Estoque" : "Novo Item de Estoque"}
+                {editingItem ? "Editar Stock" : "Novo Item"}
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
@@ -441,8 +462,8 @@ export function StockUploadPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, newEan: e.target.value })
                   }
-                  className="w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-textAccent"
-                  placeholder="Ex: 7891010101010"
+                  className="w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-textAccent focus:border-accent outline-none"
+                  placeholder="Ex: 789..."
                 />
               </div>
               <div>
@@ -458,14 +479,14 @@ export function StockUploadPage() {
                       expectedQuantity: parseInt(e.target.value) || 0,
                     })
                   }
-                  className="w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-textAccent"
+                  className="w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-textAccent focus:border-accent outline-none"
                 />
               </div>
             </div>
-            <div className="p-4 border-t border-gray-700 bg-gray-900/50 flex justify-end gap-3">
+            <div className="p-4 border-t border-gray-700 bg-gray-900/50 flex justify-end gap-3 rounded-b-xl">
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="px-4 py-2 text-gray-300 hover:text-textAccent transition-colors"
+                className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
               >
                 Cancelar
               </button>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Plus,
   Search,
@@ -9,6 +9,9 @@ import {
   Play,
   Users,
   Edit3,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
 } from "lucide-react";
 import { api } from "../../../lib/axios";
 import { useFeedbackStore } from "../../../store/feedbackStore";
@@ -41,8 +44,14 @@ export function InventoryListPage() {
   const [sessions, setSessions] = useState<InventorySessionModel[]>([]);
   const [teams, setTeams] = useState<TeamModel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
   const showFeedback = useFeedbackStore((state) => state.showFeedback);
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const pageSize = 10;
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -58,21 +67,32 @@ export function InventoryListPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    fetchSessions();
-    fetchTeams();
-  }, []);
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
-  const fetchSessions = async () => {
+  const fetchSessions = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await api.get("/inventorysession");
-      setSessions(response.data);
+      const response = await api.get("/inventorysession", {
+        params: {
+          page,
+          pageSize,
+          search: debouncedSearch || undefined,
+        },
+      });
+
+      setSessions(response.data.data || response.data);
+      setTotalPages(response.data.totalPages || 1);
+      setTotalItems(response.data.totalItems || 0);
     } catch (error: any) {
       showFeedback("Erro ao carregar os inventários.", "error");
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [page, debouncedSearch, showFeedback]);
 
   const fetchTeams = async () => {
     try {
@@ -82,6 +102,14 @@ export function InventoryListPage() {
       console.error("Erro ao carregar times", error);
     }
   };
+
+  useEffect(() => {
+    fetchTeams();
+  }, []);
+
+  useEffect(() => {
+    fetchSessions();
+  }, [fetchSessions]);
 
   const handleOpenCreate = () => {
     setFormData({ clientName: "", teamId: "", startDate: "", endDate: "" });
@@ -163,8 +191,18 @@ export function InventoryListPage() {
     }
   };
 
-  const getStatusInfo = (status: number) => {
-    switch (status) {
+  const getStatusInfo = (status: number | string) => {
+    // Trata tanto número (antigo) quanto string mapeada do Enum (novo endpoint)
+    const statusVal =
+      typeof status === "string"
+        ? status === "Open"
+          ? 0
+          : status === "InProgress"
+            ? 1
+            : 2
+        : status;
+
+    switch (statusVal) {
       case 1:
         return {
           label: "Em Andamento",
@@ -182,10 +220,6 @@ export function InventoryListPage() {
         };
     }
   };
-
-  const filteredSessions = sessions.filter((s) =>
-    s.clientName.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
 
   return (
     <div className="space-y-6">
@@ -214,28 +248,42 @@ export function InventoryListPage() {
           />
           <input
             type="text"
-            placeholder="Buscar por nome da farmácia..."
+            placeholder="Buscar por nome da farmácia via servidor..."
             value={searchTerm}
-            disabled={isLoading}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full bg-gray-900 border border-gray-700 rounded-md py-2 pl-10 pr-4 text-gray-200 focus:outline-none focus:border-accent"
           />
+          {/* Indicador visual de que está buscando no servidor */}
+          {isLoading && searchTerm !== debouncedSearch && (
+            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-accent" />
+          )}
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="text-center py-10 text-textSecondary">
+      {isLoading && sessions.length === 0 ? (
+        <div className="text-center py-10 flex flex-col items-center text-textSecondary gap-2">
+          <Loader2 className="w-8 h-8 animate-spin text-accent" />
           Carregando inventários...
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4">
-          {filteredSessions.length === 0 ? (
-            <div className="text-center py-10 text-gray-500">
+          {sessions.length === 0 ? (
+            <div className="text-center py-10 text-gray-500 bg-gray-800/50 rounded-lg border border-gray-700/50">
               Nenhum inventário encontrado.
             </div>
           ) : (
-            filteredSessions.map((session) => {
+            sessions.map((session) => {
               const statusInfo = getStatusInfo(session.status);
+              // Verifica o valor numérico do status caso ele venha como string do backend
+              const statusNum =
+                typeof session.status === "string"
+                  ? session.status === "Open"
+                    ? 0
+                    : session.status === "InProgress"
+                      ? 1
+                      : 2
+                  : session.status;
+
               return (
                 <div
                   key={session.id}
@@ -259,11 +307,11 @@ export function InventoryListPage() {
                           })}
                         </span>
                         <span>
-                          • {session.totalItemsCounted.toLocaleString()} itens
-                          totais lidos
+                          • {session.totalItemsCounted?.toLocaleString() || 0}{" "}
+                          itens totais lidos
                         </span>
                         <span>
-                          • {session.uniqueItemsCounted.toLocaleString()}{" "}
+                          • {session.uniqueItemsCounted?.toLocaleString() || 0}{" "}
                           produtos únicos
                         </span>
                       </div>
@@ -278,7 +326,7 @@ export function InventoryListPage() {
                     </span>
 
                     <div className="flex items-center gap-2">
-                      {session.status === 0 && (
+                      {statusNum === 0 && (
                         <button
                           onClick={(e) => handleUpdateStatus(e, session.id, 1)}
                           className="text-yellow-500 hover:text-yellow-400 flex items-center gap-1 text-sm bg-gray-900 px-2 py-1 rounded border border-gray-700"
@@ -286,7 +334,7 @@ export function InventoryListPage() {
                           <Play size={16} /> Iniciar
                         </button>
                       )}
-                      {session.status === 1 && (
+                      {statusNum === 1 && (
                         <button
                           onClick={(e) => handleUpdateStatus(e, session.id, 2)}
                           className="text-green-500 hover:text-green-400 flex items-center gap-1 text-sm bg-gray-900 px-2 py-1 rounded border border-gray-700"
@@ -306,14 +354,42 @@ export function InventoryListPage() {
         </div>
       )}
 
+      {/* Controles de Paginação (Somente exibe se houver itens) */}
+      {sessions.length > 0 && (
+        <div className="flex items-center justify-between bg-gray-800 p-4 rounded-lg border border-gray-700 mt-4 text-sm text-textSecondary">
+          <span>
+            Mostrando página {page} de {totalPages || 1}
+          </span>
+          <span>Total de inventários: {totalItems}</span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1 || isLoading}
+              className="p-2 rounded-lg bg-gray-900 hover:bg-gray-700 disabled:opacity-50 transition-colors"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages || isLoading}
+              className="p-2 rounded-lg bg-gray-900 hover:bg-gray-700 disabled:opacity-50 transition-colors"
+            >
+              <ChevronRight size={20} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* O Modal permanece exatamente o mesmo, mantendo sua UI intacta */}
       {(isCreateModalOpen || isEditModalOpen) && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-sm">
-          <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 w-full max-w-lg shadow-2xl">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-sm p-4">
+          <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold text-textAccent">
                 {isEditModalOpen ? "Detalhes do Inventário" : "Novo Inventário"}
               </h2>
               <button
+                type="button"
                 onClick={() => {
                   setIsCreateModalOpen(false);
                   setIsEditModalOpen(false);
@@ -450,9 +526,7 @@ export function InventoryListPage() {
                         : "Criar Inventário"}
                   </button>
                 </div>
-              ) : (
-                <> </>
-              )}
+              ) : null}
             </form>
           </div>
         </div>

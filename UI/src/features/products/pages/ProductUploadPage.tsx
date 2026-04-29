@@ -13,6 +13,7 @@ import { clsx } from "clsx";
 import { api } from "../../../lib/axios";
 import { useFeedbackStore } from "../../../store/feedbackStore";
 import type { Product } from "../../../types";
+import { SessionAutocomplete } from "../../../components/common/SessionAutoComplete";
 
 export function ProductUploadPage() {
   const [dragActive, setDragActive] = useState(false);
@@ -23,8 +24,9 @@ export function ProductUploadPage() {
     "idle" | "success" | "error"
   >("idle");
   const [productData, setProductData] = useState<Product[]>([]);
+
   const [selectedSessionId, setSelectedSessionId] = useState<string>("");
-  const [sessions, setSessions] = useState<any[]>([]);
+  const [selectedSessionName, setSelectedSessionName] = useState<string>("");
 
   const showFeedback = useFeedbackStore((state) => state.showFeedback);
 
@@ -36,18 +38,9 @@ export function ProductUploadPage() {
       console.error("Erro ao buscar produtos:", error);
     }
   };
-  const fetchSessions = async () => {
-    try {
-      const response = await api.get("/InventorySession");
-      setSessions(response.data);
-    } catch (error) {
-      console.error("Erro ao buscar inventários:", error);
-    }
-  };
 
   useEffect(() => {
     fetchProducts();
-    fetchSessions();
   }, []);
 
   const handleFile = (selectedFile: File) => {
@@ -144,22 +137,18 @@ export function ProductUploadPage() {
         </p>
       </div>
 
-      <div className="rounded-md flex flex-row w-full p-2">
-        <label className="block text-lg font-medium mb-1 flex-grow text-textPrimary">
+      <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 mb-8 flex flex-col gap-2 w-full">
+        <label className="block text-sm font-medium text-textPrimary">
           Selecione o Inventário de Destino
         </label>
-        <select
-          className="p-2 border rounded bg-gray-700 text-textAccent focus:outline-none focus:ring-2 focus:ring-accent"
-          value={selectedSessionId}
-          onChange={(e) => setSelectedSessionId(e.target.value)}
-        >
-          <option value="">Escolha um inventário</option>
-          {sessions.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.clientName}
-            </option>
-          ))}
-        </select>
+        <SessionAutocomplete
+          selectedId={selectedSessionId}
+          selectedName={selectedSessionName}
+          onSelect={(id, name) => {
+            setSelectedSessionId(id);
+            setSelectedSessionName(name);
+          }}
+        />
       </div>
 
       {/* Drag & Drop */}
@@ -234,7 +223,6 @@ export function ProductUploadPage() {
         </div>
       </div>
 
-      {/* Preview da Tabela */}
       {file && uploadStatus !== "success" && (
         <PreviewTable data={previewData} preview={5} />
       )}
@@ -251,7 +239,6 @@ export function ProductUploadPage() {
         />
       )}
 
-      {/* Mensagem de Erro (Exemplo) */}
       {uploadStatus === "error" && (
         <div className="mt-4 p-4 bg-red-50 text-red-700 rounded-lg flex items-center gap-3">
           <AlertCircle />
