@@ -16,6 +16,7 @@ export interface User {
 }
 
 export interface Product {
+  id: string;
   ean: string;
   name: string;
   description: string;

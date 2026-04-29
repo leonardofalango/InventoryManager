@@ -1,4 +1,3 @@
-// src/features/stock/pages/StockUploadPage.tsx
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import Papa from "papaparse";
@@ -67,8 +66,8 @@ export function StockUploadPage() {
           setViewMode("manage");
         })
         .catch(() => {
-          showFeedback("Selecione um inventário para gerir o stock.", "idle");
-          setViewMode("upload"); // Fallback para modo upload se não houver ativo
+          showFeedback("Selecione um inventário para gerir o stock.", "info");
+          setViewMode("upload");
         })
         .finally(() => setIsLoadingSession(false));
     } else {
@@ -274,7 +273,7 @@ export function StockUploadPage() {
         <div className="flex justify-end mb-4">
           <button
             onClick={() => openModal()}
-            className="bg-accent text-gray-900 px-4 py-2 rounded-lg font-medium hover:bg-accent/90 flex items-center gap-2"
+            className="bg-accent text-textAccent px-4 py-2 rounded-lg font-medium hover:bg-accent/90 flex items-center gap-2"
           >
             <Plus size={20} /> Adicionar Manualmente
           </button>
@@ -442,7 +441,7 @@ export function StockUploadPage() {
           <div className="bg-gray-800 rounded-xl max-w-md w-full border border-gray-700 shadow-2xl">
             <div className="p-4 border-b border-gray-700 flex justify-between items-center">
               <h3 className="text-lg font-medium text-textAccent">
-                {editingItem ? "Editar Stock" : "Novo Item"}
+                {editingItem ? "Editar Estoque" : "Novo Item"}
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}

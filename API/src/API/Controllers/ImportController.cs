@@ -14,12 +14,17 @@ public class ImportController : ControllerBase
     private readonly InventoryDbContext _context;
     public ImportController(InventoryDbContext context) => _context = context;
 
-    [HttpPost("products")]
-    public async Task<IActionResult> ImportProducts([FromBody] List<Product> products)
+    [HttpPost("products/{sessionId}")]
+    public async Task<IActionResult> ImportProducts(Guid sessionId, [FromBody] List<Product> products)
     {
+        var sessionExists = await _context.InventorySessions.AnyAsync(s => s.Id == sessionId);
+        if (!sessionExists) return NotFound("Sessão não encontrada.");
+
         foreach (var product in products)
         {
-            var existing = await _context.Products.FirstOrDefaultAsync(p => p.Ean == product.Ean);
+            var existing = await _context.Products
+                .FirstOrDefaultAsync(p => p.Ean == product.Ean && p.InventorySessionId == sessionId);
+
             if (existing != null)
             {
                 existing.Name = product.Name;
@@ -28,6 +33,7 @@ public class ImportController : ControllerBase
             }
             else
             {
+                product.InventorySessionId = sessionId;
                 _context.Products.Add(product);
             }
         }
