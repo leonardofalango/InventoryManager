@@ -414,7 +414,8 @@ export function StockUploadPage() {
 
           <div className="p-4 border-t border-gray-700 flex items-center justify-between text-sm text-textSecondary">
             <span>
-              Página {page} de {totalPages || 1}
+              Página {page} de {totalPages || 1} - {totalItems} item(s)
+              encontrado(s)
             </span>
             <div className="flex gap-2">
               <button
