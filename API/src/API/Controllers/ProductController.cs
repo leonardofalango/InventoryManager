@@ -23,7 +23,6 @@ public class ProductsController : ControllerBase
     {
         var query = _context.Products.AsQueryable();
 
-        // Opcional: Busca por nome ou EAN caso queira implementar no front depois
         if (!string.IsNullOrWhiteSpace(search))
         {
             var searchLower = search.ToLower();

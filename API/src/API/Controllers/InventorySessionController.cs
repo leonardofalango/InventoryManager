@@ -241,6 +241,7 @@ public class InventorySessionController : ControllerBase
         var totalItems = await query.CountAsync();
 
         var sessions = await query
+            .Where(s => s.Status == InventoryStatus.Open || s.Status == InventoryStatus.InProgress)
             .OrderByDescending(s => s.StartDate)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
