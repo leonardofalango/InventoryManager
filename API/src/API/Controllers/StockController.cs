@@ -65,6 +65,14 @@ public class StockController : ControllerBase
         var product = await _context.Products.FirstOrDefaultAsync(p => p.Ean == request.Ean);
         if (product == null) return NotFound(new { message = "Produto não encontrado." });
 
+        var existingStock = await _context.ExpectedStocks
+            .FirstOrDefaultAsync(e => e.InventorySessionId == sessionId && e.ProductId == product.Id);
+
+        if (existingStock != null)
+        {
+            return BadRequest(new { message = "Este produto já está na lista de estoque esperado. Use o botão de editar para alterar a quantidade." });
+        }
+
         var stock = new ExpectedStock
         {
             InventorySessionId = sessionId,
