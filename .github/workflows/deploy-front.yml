@@ -1,0 +1,40 @@
+name: Deploy Frontend S3
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "UI/**"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "25.x"
+
+      - name: Install dependencies
+        working-directory: ./UI
+        run: npm install
+
+      - name: Build
+        working-directory: ./UI
+        run: npm run build
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: sa-east-1
+
+      - name: Deploy to S3
+        working-directory: ./UI/dist
+        run: aws s3 sync . s3://absoluta-log-s3-sandbox --delete
