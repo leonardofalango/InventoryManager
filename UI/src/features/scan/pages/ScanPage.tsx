@@ -98,7 +98,7 @@ export function ScanPage() {
             }),
             success: true,
           },
-          ...prev,
+          ...prev.slice(0, 30),
         ]);
         showFeedback(`Lido: ${cleanCode}`, "success");
       } catch (error: any) {
