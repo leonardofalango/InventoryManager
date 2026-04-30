@@ -1,5 +1,6 @@
 using InventoryManager.Domain.Entities;
 using InventoryManager.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 
 namespace InventoryManager.API.Data;
 
@@ -7,7 +8,7 @@ public static class DbInitializer
 {
     public static void Initialize(InventoryDbContext context)
     {
-        context.Database.EnsureCreated();
+        context.Database.Migrate();
 
         if (context.Users.Any())
         {
