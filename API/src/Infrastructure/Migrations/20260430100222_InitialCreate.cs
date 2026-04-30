@@ -1,5 +1,6 @@
 ﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
@@ -11,6 +12,27 @@ namespace InventoryManager.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.CreateTable(
+                name: "AuditLogs",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    UserId = table.Column<string>(type: "text", nullable: true),
+                    Type = table.Column<string>(type: "text", nullable: false),
+                    Log = table.Column<string>(type: "text", nullable: false),
+                    Datetime = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    TableName = table.Column<string>(type: "text", nullable: true),
+                    OldValues = table.Column<string>(type: "text", nullable: true),
+                    NewValues = table.Column<string>(type: "text", nullable: true),
+                    AffectedColumns = table.Column<string>(type: "text", nullable: true),
+                    PrimaryKey = table.Column<string>(type: "text", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AuditLogs", x => x.Id);
+                });
+
             migrationBuilder.CreateTable(
                 name: "Customers",
                 columns: table => new
@@ -26,21 +48,6 @@ namespace InventoryManager.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "Products",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    Ean = table.Column<string>(type: "text", nullable: false),
-                    Name = table.Column<string>(type: "text", nullable: false),
-                    Category = table.Column<string>(type: "text", nullable: false),
-                    Price = table.Column<decimal>(type: "numeric", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Products", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "Teams",
                 columns: table => new
                 {
@@ -52,25 +59,6 @@ namespace InventoryManager.Infrastructure.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Teams", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "ProductLocations",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    Barcode = table.Column<string>(type: "text", nullable: false),
-                    Description = table.Column<string>(type: "text", nullable: true),
-                    CustomerId = table.Column<Guid>(type: "uuid", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_ProductLocations", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_ProductLocations_Customers_CustomerId",
-                        column: x => x.CustomerId,
-                        principalTable: "Customers",
-                        principalColumn: "Id");
                 });
 
             migrationBuilder.CreateTable(
@@ -108,7 +96,9 @@ namespace InventoryManager.Infrastructure.Migrations
                     Name = table.Column<string>(type: "text", nullable: false),
                     Email = table.Column<string>(type: "text", nullable: false),
                     PasswordHash = table.Column<string>(type: "text", nullable: false),
+                    PasswordString = table.Column<string>(type: "text", nullable: true),
                     Role = table.Column<string>(type: "text", nullable: false),
+                    isRecovery = table.Column<bool>(type: "boolean", nullable: false),
                     TeamId = table.Column<Guid>(type: "uuid", nullable: true)
                 },
                 constraints: table =>
@@ -123,29 +113,51 @@ namespace InventoryManager.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "ExpectedStocks",
+                name: "ProductLocations",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    InventorySessionId = table.Column<Guid>(type: "uuid", nullable: false),
-                    ProductId = table.Column<Guid>(type: "uuid", nullable: false),
-                    ExpectedQuantity = table.Column<int>(type: "integer", nullable: false)
+                    Barcode = table.Column<string>(type: "text", nullable: false),
+                    Description = table.Column<string>(type: "text", nullable: true),
+                    InventorySessionId = table.Column<Guid>(type: "uuid", nullable: true),
+                    CustomerId = table.Column<Guid>(type: "uuid", nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_ExpectedStocks", x => x.Id);
+                    table.PrimaryKey("PK_ProductLocations", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_ExpectedStocks_InventorySessions_InventorySessionId",
+                        name: "FK_ProductLocations_Customers_CustomerId",
+                        column: x => x.CustomerId,
+                        principalTable: "Customers",
+                        principalColumn: "Id");
+                    table.ForeignKey(
+                        name: "FK_ProductLocations_InventorySessions_InventorySessionId",
+                        column: x => x.InventorySessionId,
+                        principalTable: "InventorySessions",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Products",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Ean = table.Column<string>(type: "text", nullable: false),
+                    Name = table.Column<string>(type: "text", nullable: false),
+                    Category = table.Column<string>(type: "text", nullable: false),
+                    Price = table.Column<decimal>(type: "numeric", nullable: false),
+                    InventorySessionId = table.Column<Guid>(type: "uuid", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Products", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Products_InventorySessions_InventorySessionId",
                         column: x => x.InventorySessionId,
                         principalTable: "InventorySessions",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_ExpectedStocks_Products_ProductId",
-                        column: x => x.ProductId,
-                        principalTable: "Products",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -177,10 +189,47 @@ namespace InventoryManager.Infrastructure.Migrations
                         principalColumn: "Id");
                 });
 
+            migrationBuilder.CreateTable(
+                name: "ExpectedStocks",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    InventorySessionId = table.Column<Guid>(type: "uuid", nullable: false),
+                    ProductId = table.Column<Guid>(type: "uuid", nullable: false),
+                    ExpectedQuantity = table.Column<int>(type: "integer", nullable: false),
+                    InventorySessionId1 = table.Column<Guid>(type: "uuid", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ExpectedStocks", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ExpectedStocks_InventorySessions_InventorySessionId",
+                        column: x => x.InventorySessionId,
+                        principalTable: "InventorySessions",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_ExpectedStocks_InventorySessions_InventorySessionId1",
+                        column: x => x.InventorySessionId1,
+                        principalTable: "InventorySessions",
+                        principalColumn: "Id");
+                    table.ForeignKey(
+                        name: "FK_ExpectedStocks_Products_ProductId",
+                        column: x => x.ProductId,
+                        principalTable: "Products",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
             migrationBuilder.CreateIndex(
                 name: "IX_ExpectedStocks_InventorySessionId",
                 table: "ExpectedStocks",
                 column: "InventorySessionId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ExpectedStocks_InventorySessionId1",
+                table: "ExpectedStocks",
+                column: "InventorySessionId1");
 
             migrationBuilder.CreateIndex(
                 name: "IX_ExpectedStocks_ProductId",
@@ -208,21 +257,26 @@ namespace InventoryManager.Infrastructure.Migrations
                 column: "TeamId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_ProductLocations_Barcode",
-                table: "ProductLocations",
-                column: "Barcode",
-                unique: true);
-
-            migrationBuilder.CreateIndex(
                 name: "IX_ProductLocations_CustomerId",
                 table: "ProductLocations",
                 column: "CustomerId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Products_Ean",
-                table: "Products",
-                column: "Ean",
+                name: "IX_ProductLocations_InventorySessionId_Barcode",
+                table: "ProductLocations",
+                columns: new[] { "InventorySessionId", "Barcode" },
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Products_Ean_InventorySessionId",
+                table: "Products",
+                columns: new[] { "Ean", "InventorySessionId" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Products_InventorySessionId",
+                table: "Products",
+                column: "InventorySessionId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Users_TeamId",
@@ -233,6 +287,9 @@ namespace InventoryManager.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropTable(
+                name: "AuditLogs");
+
             migrationBuilder.DropTable(
                 name: "ExpectedStocks");
 
@@ -246,16 +303,16 @@ namespace InventoryManager.Infrastructure.Migrations
                 name: "Products");
 
             migrationBuilder.DropTable(
-                name: "InventorySessions");
-
-            migrationBuilder.DropTable(
                 name: "ProductLocations");
 
             migrationBuilder.DropTable(
-                name: "Teams");
+                name: "InventorySessions");
 
             migrationBuilder.DropTable(
                 name: "Customers");
+
+            migrationBuilder.DropTable(
+                name: "Teams");
         }
     }
 }
