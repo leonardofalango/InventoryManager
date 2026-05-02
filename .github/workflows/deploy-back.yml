@@ -48,5 +48,5 @@ jobs:
             docker run -d --name api-container -p 80:8080 \
               -e "ConnectionStrings__DefaultConnection=${{ secrets.DB_CONNECTION_STRING }}" \
               -e "Jwt__Key=${{ secrets.JWT_KEY }}" \
-              -e "Jwt__Audience=${{ secrets.JWT_AUDIENCE }}"
+              -e "Jwt__Audience=${{ secrets.JWT_AUDIENCE }}" \
               inventory-api
