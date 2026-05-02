@@ -49,4 +49,5 @@ jobs:
               -e "ConnectionStrings__DefaultConnection=${{ secrets.DB_CONNECTION_STRING }}" \
               -e "Jwt__Key=${{ secrets.JWT_KEY }}" \
               -e "Jwt__Audience=${{ secrets.JWT_AUDIENCE }}" \
+              -e "Jwt__Issuer=${{ secrets.JWT_ISSUER }}" \
               inventory-api
