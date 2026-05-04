@@ -8,6 +8,7 @@ import {
   LogOut,
   ScanLine,
   QrCode,
+  Layout,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { useAuthStore } from "../../store/authStore";
@@ -17,6 +18,12 @@ import logostring from "../../assets/absolutaloglogo.png";
 
 const MENU_ITEMS: { path: string; label: string; icon: any; roles: Role[] }[] =
   [
+    {
+      path: "/logs",
+      label: "Logs",
+      icon: Layout,
+      roles: ["ADMIN"],
+    },
     {
       path: "/",
       label: "Dashboard",

@@ -226,7 +226,9 @@ public class InventorySessionController : ControllerBase
     public async Task<IActionResult> GetAllSessions(
     [FromQuery] int page = 1,
     [FromQuery] int pageSize = 10,
-    [FromQuery] string? search = null)
+    [FromQuery] string? search = null,
+    [FromQuery] bool? allInventories = null
+    )
     {
         var query = _context.InventorySessions
             .Include(s => s.Counts)
@@ -241,7 +243,7 @@ public class InventorySessionController : ControllerBase
         var totalItems = await query.CountAsync();
 
         var sessions = await query
-            .Where(s => s.Status == InventoryStatus.Open || s.Status == InventoryStatus.InProgress)
+            .Where(s => allInventories == null ? s.Status == InventoryStatus.Open || s.Status == InventoryStatus.InProgress : true)
             .OrderByDescending(s => s.StartDate)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)

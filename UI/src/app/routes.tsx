@@ -13,6 +13,7 @@ import type { Role } from "../types";
 import { RecoveryPage } from "../features/auth/pages/RecoveryPage";
 import { ChangePasswordPage } from "../features/auth/pages/ChangePassword";
 import { LabelManagementPage } from "../features/label/pages/LabelManagementPage";
+import { AdminLogsPage } from "../features/dashboard/pages/Logs";
 
 const RoleProtectedRoute = ({
   children,
@@ -50,6 +51,14 @@ export const router = createHashRouter([
         element: (
           <RoleProtectedRoute allowedRoles={["ADMIN", "MANAGER"]}>
             <DashboardPage />
+          </RoleProtectedRoute>
+        ),
+      },
+      {
+        path: "/logs",
+        element: (
+          <RoleProtectedRoute allowedRoles={["ADMIN"]}>
+            <AdminLogsPage />
           </RoleProtectedRoute>
         ),
       },

@@ -21,14 +21,18 @@ export function SessionAutocomplete({
   const [sessions, setSessions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const user = JSON.parse(localStorage.getItem("auth-storage") || "{}")?.state
+    ?.user;
 
   const fetchSessions = useCallback(async (query: string) => {
     setIsLoading(true);
+    console.log("user:", user);
+
     try {
-      const res = await api.get(
-        `/inventorysession?page=1&pageSize=20&search=${query}`,
-      );
-      // Dependendo do retorno da API paginada, pode estar em res.data.data ou diretamente em res.data
+      const uri =
+        `/inventorysession?page=1&pageSize=20&search=${query}` +
+        (user?.role === "ADMIN" ? "&allInventories=true" : "");
+      const res = await api.get(uri);
       const data = res.data.data || (Array.isArray(res.data) ? res.data : []);
       setSessions(data);
     } catch (error) {

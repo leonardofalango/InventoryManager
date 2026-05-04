@@ -110,7 +110,7 @@ public class UserController : ControllerBase
         public string Email { get; set; } = string.Empty;
         public string Role { get; set; } = "COUNTER";
         public string? Password { get; set; } = null;
-        public Guid TeamId { get; set; }
+        public Guid? TeamId { get; set; }
 
     }
 }

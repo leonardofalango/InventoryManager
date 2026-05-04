@@ -81,6 +81,7 @@ export function InventoryListPage() {
           page,
           pageSize,
           search: debouncedSearch || undefined,
+          allInventories: true,
         },
       });
 
