@@ -10,7 +10,6 @@ import {
 import { AxiosError } from "axios";
 import { api } from "../../../lib/axios";
 import type { DashboardData, DiscrepancyItem } from "../types/dashboard-types";
-import type { InventorySession } from "../../../types";
 import { SessionAutocomplete } from "../../../components/common/SessionAutoComplete";
 
 export function DashboardPage() {
@@ -34,7 +33,7 @@ export function DashboardPage() {
 
       try {
         setError(null);
-        let targetSessionId = selectedSession?.id || null;
+        let targetSessionId = selectedSession || null;
 
         if (!targetSessionId) {
           const activeRes = await api.get("/InventorySession/active");
