@@ -2,42 +2,49 @@ import type { ProductCsvRow } from "../types/product-types";
 
 interface Props {
   data: ProductCsvRow[];
-  preview: number;
+  preview?: number;
 }
 
 export function PreviewTable({ data, preview }: Props) {
   if (data.length === 0) return null;
   const headers = Object.keys(data[0]);
+  const displayData = preview && preview > 0 ? data.slice(0, preview) : data;
 
   return (
-    <div className="border rounded-lg overflow-hidden shadow-sm bg-gray-900 mt-6">
-      <div className="p-4 bg-gray-900 border-b flex justify-between items-center">
+    <div className="border border-gray-700 rounded-lg overflow-hidden shadow-sm bg-gray-900 mt-6 w-full">
+      <div className="p-4 bg-gray-900 border-b border-gray-700 flex justify-between items-center">
         <h3 className="font-semibold text-textAccent">
-          Pré-visualização dos Dados
+          Pré-visualização dos Dados ({data.length} registros lidos)
         </h3>
-        {preview > 0 && (
-          <span className="text-s text-gray-300">
+        {preview && preview > 0 && preview < data.length && (
+          <span className="text-sm text-gray-300">
             Mostrando os primeiros {preview} registros
           </span>
         )}
       </div>
-      <div className="overflow-x-auto ">
+      <div className="overflow-x-auto overflow-y-auto max-h-96">
         <table className="w-full text-sm text-left text-gray-300">
-          <thead className="bg-gray-100 text-gray-700 bg-gray-900 font-medium uppercase text-xs">
+          <thead className="bg-gray-800 text-textSecondary font-medium uppercase text-xs sticky top-0 shadow-sm">
             <tr>
               {headers.map((header) => (
-                <th key={header} className="px-4 py-3 border-b text-gray-200">
+                <th
+                  key={header}
+                  className="px-4 py-3 border-b border-gray-700 text-gray-200"
+                >
                   {header}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-200">
-            {data.map((row, index) => (
+          <tbody className="divide-y divide-gray-700/50">
+            {displayData.map((row, index) => (
               <tr key={index} className="hover:bg-gray-600 transition-colors">
                 {headers.map((header) => (
-                  <td key={`${index}-${header}`} className="px-4 py-3 text-700">
-                    {row[header]}
+                  <td
+                    key={`${index}-${header}`}
+                    className="px-4 py-3 text-gray-300"
+                  >
+                    {String(row[header as keyof ProductCsvRow])}
                   </td>
                 ))}
               </tr>
