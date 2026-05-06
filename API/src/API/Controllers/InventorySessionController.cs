@@ -45,13 +45,22 @@ public class InventorySessionController : ControllerBase
             .Select(g => new { Ean = g.Key, TotalCount = g.Sum(c => c.Quantity) })
             .ToList();
 
-        int divergences = 0;
-        foreach (var counted in countedPerEan)
-        {
-            var expected = expectedStocks.FirstOrDefault(e => e.Product?.Ean == counted.Ean)?.ExpectedQuantity ?? 0;
-            if (expected != counted.TotalCount) divergences++;
-        }
+        var expectedEans = expectedStocks.Where(e => e.Product != null).Select(e => e.Product!.Ean);
+        var countedEans = countedPerEan.Select(c => c.Ean);
+        var allEans = expectedEans.Union(countedEans).Distinct();
 
+        int divergences = 0;
+        foreach (var ean in allEans)
+        {
+            var expectedQty = expectedStocks.FirstOrDefault(e => e.Product?.Ean == ean)?.ExpectedQuantity ?? 0;
+
+            var countedQty = countedPerEan.FirstOrDefault(c => c.Ean == ean)?.TotalCount ?? 0;
+
+            if (expectedQty != countedQty)
+            {
+                divergences++;
+            }
+        }
         var activeCounters = session.Counts
             .Where(c => c.CountedAt >= DateTime.UtcNow.AddHours(-1))
             .Select(c => c.UserId)
@@ -308,6 +317,60 @@ public class InventorySessionController : ControllerBase
 
         return Ok(new { message = "Inventário atualizado com sucesso." });
     }
+
+    [HttpGet("{sessionId}/dashboard/discrepancies")]
+    public async Task<ActionResult<IEnumerable<DiscrepancyItemDto>>> GetDiscrepancies(Guid sessionId)
+    {
+        var expectedStocks = await _context.ExpectedStocks
+            .Include(e => e.Product)
+            .Where(e => e.InventorySessionId == sessionId)
+            .ToListAsync();
+
+        var actualCounts = await _context.InventoryCounts
+            .Include(c => c.ProductLocation)
+            .Where(c => c.InventorySessionId == sessionId)
+            .GroupBy(c => new { c.Ean, c.ProductLocation.Description })
+            .Select(g => new
+            {
+                Ean = g.Key.Ean,
+                Description = g.Key.Description,
+                TotalCounted = g.Sum(x => x.Quantity)
+            })
+            .ToListAsync();
+
+        var discrepancies = new List<DiscrepancyItemDto>();
+
+        foreach (var expected in expectedStocks)
+        {
+            var countRecord = actualCounts.FirstOrDefault(c => c.Ean == expected.Product?.Ean);
+            var countedQty = countRecord?.TotalCounted ?? 0;
+
+            if (countedQty != expected.ExpectedQuantity)
+            {
+                discrepancies.Add(new DiscrepancyItemDto
+                {
+                    Ean = expected.Product?.Ean,
+                    Description = expected.Product?.Name ?? "Descrição não disponível",
+                    ExpectedQuantity = expected.ExpectedQuantity,
+                    CountedQuantity = countedQty
+                });
+            }
+        }
+
+        var unexpectedCounts = actualCounts.Where(c => !expectedStocks.Any(e => e.Product?.Ean == c.Ean));
+        foreach (var unexpected in unexpectedCounts)
+        {
+            discrepancies.Add(new DiscrepancyItemDto
+            {
+                Ean = unexpected.Ean,
+                Description = unexpected.Description ?? "Descrição não disponível",
+                ExpectedQuantity = 0,
+                CountedQuantity = unexpected.TotalCounted
+            });
+        }
+
+        return Ok(discrepancies.OrderByDescending(d => Math.Abs(d.Difference)));
+    }
 }
 
 public class RegisterCountRequest
@@ -337,4 +400,13 @@ public class UpdateSessionRequest
     public Guid? TeamId { get; set; }
     public DateTime StartDate { get; set; }
     public DateTime? EndDate { get; set; }
+}
+
+public class DiscrepancyItemDto
+{
+    public string? Ean { get; set; }
+    public string? Description { get; set; }
+    public int ExpectedQuantity { get; set; }
+    public int CountedQuantity { get; set; }
+    public int Difference => CountedQuantity - ExpectedQuantity;
 }

@@ -5,16 +5,27 @@ import {
   CheckCircle2,
   AlertTriangle,
   Loader2,
+  X, // Importado para o botão de fechar o modal
 } from "lucide-react";
 import { AxiosError } from "axios";
 import { api } from "../../../lib/axios";
-import type { DashboardData } from "../types/dashboard-types";
+import type { DashboardData, DiscrepancyItem } from "../types/dashboard-types";
+import type { InventorySession } from "../../../types";
+import { SessionAutocomplete } from "../../../components/common/SessionAutoComplete";
 
 export function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const isFetching = useRef(false);
+
+  const [selectedSession, setSelectedSession] = useState<string>("");
+  const [selectedSessionName, setSelectedSessionName] = useState<string>("");
+
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [discrepancies, setDiscrepancies] = useState<DiscrepancyItem[]>([]);
+  const [isLoadingDiscrepancies, setIsLoadingDiscrepancies] = useState(false);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -23,17 +34,27 @@ export function DashboardPage() {
 
       try {
         setError(null);
-        const activeRes = await api.get("/InventorySession/active");
-        const sessionId = activeRes.data.id;
+        let targetSessionId = selectedSession?.id || null;
 
-        const statsRes = await api.get<DashboardData>(
-          `/InventorySession/${sessionId}/dashboard`,
-        );
-        setData(statsRes.data);
+        if (!targetSessionId) {
+          const activeRes = await api.get("/InventorySession/active");
+          targetSessionId = activeRes.data.id || null;
+        }
+
+        setCurrentSessionId(targetSessionId);
+
+        if (targetSessionId) {
+          const statsRes = await api.get<DashboardData>(
+            `/InventorySession/${targetSessionId}/dashboard`,
+          );
+          setData(statsRes.data);
+        }
       } catch (err: unknown) {
         const error = err as AxiosError;
         if (error.response?.status === 404) {
-          setError("Nenhum inventário ativo para a sua equipe no momento.");
+          setError(
+            "Nenhum inventário ativo encontrado para a sua equipe no momento.",
+          );
         } else {
           setError("Erro ao carregar dados do dashboard.");
         }
@@ -48,7 +69,25 @@ export function DashboardPage() {
     // Atualiza a cada 20 segundos
     const interval = setInterval(fetchDashboardData, 20000);
     return () => clearInterval(interval);
-  }, []);
+  }, [selectedSession]);
+
+  const handleDiscrepanciesClick = async () => {
+    if (!currentSessionId) return;
+
+    setIsModalOpen(true);
+    setIsLoadingDiscrepancies(true);
+
+    try {
+      const response = await api.get<DiscrepancyItem[]>(
+        `/InventorySession/${currentSessionId}/dashboard/discrepancies`,
+      );
+      setDiscrepancies(response.data);
+    } catch (error) {
+      console.error("Erro ao buscar divergências:", error);
+    } finally {
+      setIsLoadingDiscrepancies(false);
+    }
+  };
 
   if (loading && !data) {
     return (
@@ -63,11 +102,23 @@ export function DashboardPage() {
 
   if (error) {
     return (
-      <div className="flex justify-center items-center h-full min-h-[400px]">
-        <div className="bg-gray-800 p-8 rounded-xl border border-gray-700 text-center">
-          <AlertTriangle className="text-yellow-500 mx-auto mb-4" size={48} />
-          <h2 className="text-xl font-bold text-textAccent mb-2">Atenção</h2>
-          <p className="text-textSecondary">{error}</p>
+      <div className="flex flex-col space-y-4">
+        <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
+          <SessionAutocomplete
+            selectedId={selectedSession}
+            selectedName={selectedSessionName}
+            onSelect={(id, name) => {
+              setSelectedSession(id);
+              setSelectedSessionName(name);
+            }}
+          />
+        </div>
+        <div className="flex justify-center items-center h-full min-h-[300px]">
+          <div className="bg-gray-800 p-8 rounded-xl border border-gray-700 text-center">
+            <AlertTriangle className="text-yellow-500 mx-auto mb-4" size={48} />
+            <h2 className="text-xl font-bold text-textAccent mb-2">Atenção</h2>
+            <p className="text-textSecondary">{error}</p>
+          </div>
         </div>
       </div>
     );
@@ -77,22 +128,40 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-textAccent">
             Dashboard Geral
           </h1>
           <p className="text-textSecondary">
-            Visão em tempo real da operação atual
+            {selectedSession
+              ? `Visão da sessão: ${selectedSessionName}`
+              : "Visão em tempo real da operação atual"}
           </p>
         </div>
 
-        <div className="bg-gray-800 px-4 py-2 rounded-lg border border-gray-700 flex items-center gap-3">
-          <span className="text-textSecondary text-sm">Inventário Ativo:</span>
-          <span className="text-green-400 font-semibold flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-            {data.clientName}
-          </span>
+        <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
+          {!selectedSession && (
+            <div className="bg-gray-800 px-4 py-2 rounded-lg border border-gray-700 flex items-center gap-3 w-full sm:w-auto">
+              <span className="text-textSecondary text-sm whitespace-nowrap">
+                Inventário Ativo:
+              </span>
+              <span className="text-green-400 font-semibold flex items-center gap-2 whitespace-nowrap">
+                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                {data.clientName}
+              </span>
+            </div>
+          )}
+          <div className="w-full sm:w-72 bg-gray-800 rounded-lg border border-gray-700 p-1">
+            <SessionAutocomplete
+              selectedId={selectedSession}
+              selectedName={selectedSessionName}
+              onSelect={(id, name) => {
+                setSelectedSession(id);
+                setSelectedSessionName(name);
+              }}
+            />
+          </div>
         </div>
       </div>
 
@@ -114,9 +183,10 @@ export function DashboardPage() {
         <StatCard
           title="Divergências"
           value={data.divergences.toString()}
-          subtext="Itens com sobra ou falta"
+          subtext="Clique para ver itens com sobra ou falta"
           icon={AlertTriangle}
           color={data.divergences > 0 ? "text-red-400" : "text-textSecondary"}
+          onClick={handleDiscrepanciesClick}
         />
         <StatCard
           title="Equipe Ativa"
@@ -205,13 +275,118 @@ export function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* MODAL DE DIVERGÊNCIAS */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="bg-gray-800 rounded-xl border border-gray-700 shadow-xl w-full max-w-5xl max-h-[85vh] flex flex-col animate-fade-in">
+            {/* Header do Modal */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
+              <h2 className="text-xl font-bold text-textAccent flex items-center gap-2">
+                <AlertTriangle className="text-yellow-500" size={24} />
+                Itens com Divergência
+              </h2>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="text-gray-400 hover:text-white transition-colors focus:outline-none"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            {/* Corpo do Modal (Tabela) */}
+            <div className="p-0 overflow-y-auto flex-1">
+              {isLoadingDiscrepancies ? (
+                <div className="flex justify-center items-center py-16">
+                  <Loader2 className="animate-spin text-accent" size={40} />
+                  <span className="ml-3 text-textSecondary text-lg">
+                    Buscando itens...
+                  </span>
+                </div>
+              ) : (
+                <table className="min-w-full divide-y divide-gray-700 text-left">
+                  <thead className="bg-gray-900 sticky top-0">
+                    <tr>
+                      <th className="px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                        EAN
+                      </th>
+                      <th className="px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                        Descrição
+                      </th>
+                      <th className="px-6 py-4 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                        Esperado
+                      </th>
+                      <th className="px-6 py-4 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                        Contado
+                      </th>
+                      <th className="px-6 py-4 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                        Diferença
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-gray-800 divide-y divide-gray-700">
+                    {discrepancies.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={5}
+                          className="px-6 py-8 text-center text-sm text-gray-500"
+                        >
+                          Nenhuma divergência encontrada nesta sessão.
+                        </td>
+                      </tr>
+                    ) : (
+                      discrepancies.map((item, index) => (
+                        <tr
+                          key={index}
+                          className="hover:bg-gray-750 transition-colors"
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-textAccent">
+                            {item.ean}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-300">
+                            {item.description}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-400">
+                            {item.expectedQuantity}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-bold text-textAccent">
+                            {item.countedQuantity}
+                          </td>
+                          <td
+                            className={`px-6 py-4 whitespace-nowrap text-sm text-center font-bold ${
+                              item.difference < 0
+                                ? "text-red-400"
+                                : "text-green-400"
+                            }`}
+                          >
+                            {item.difference > 0 ? "+" : ""}
+                            {item.difference}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function StatCard({ title, value, subtext, icon: Icon, color }: any) {
+// O componente StatCard foi atualizado para receber onClick e mudar o cursor
+function StatCard({ title, value, subtext, icon: Icon, color, onClick }: any) {
   return (
-    <div className="bg-gray-800 p-5 rounded-xl border border-gray-700 shadow-sm hover:border-gray-600 transition-all">
+    <div
+      onClick={onClick}
+      className={`bg-gray-800 p-5 rounded-xl border border-gray-700 shadow-sm transition-all ${
+        onClick
+          ? "cursor-pointer hover:border-gray-500 hover:bg-gray-700"
+          : "hover:border-gray-600"
+      }`}
+    >
       <div className="flex justify-between items-start">
         <div>
           <p className="text-sm font-medium text-textSecondary mb-1">{title}</p>

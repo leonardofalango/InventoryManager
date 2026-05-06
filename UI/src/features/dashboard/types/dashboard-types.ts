@@ -23,3 +23,11 @@ export interface SectorData {
   name: string;
   percent: number;
 }
+
+export interface DiscrepancyItem {
+  ean: string;
+  description: string;
+  expectedQuantity: number;
+  countedQuantity: number;
+  difference: number;
+}

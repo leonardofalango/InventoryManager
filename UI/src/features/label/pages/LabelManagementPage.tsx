@@ -23,7 +23,6 @@ export function LabelManagementPage() {
   const [loadingLabels, setLoadingLabels] = useState(false);
   const [labels, setLabels] = useState<Label[]>([]);
 
-  // Estados para o novo Autocomplete
   const [selectedSession, setSelectedSession] = useState("");
   const [selectedSessionName, setSelectedSessionName] = useState("");
 
@@ -128,7 +127,6 @@ export function LabelManagementPage() {
         <label className="block text-sm font-medium text-textPrimary mb-2">
           Inventário de Destino
         </label>
-        {/* Substituição do antigo <select> pelo Autocomplete */}
         <SessionAutocomplete
           selectedId={selectedSession}
           selectedName={selectedSessionName}
