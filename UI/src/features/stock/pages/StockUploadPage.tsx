@@ -19,7 +19,8 @@ import type { ExpectedStockItem, StockCsvRow } from "../types/stock-types";
 import { clsx } from "clsx";
 import { api } from "../../../lib/axios";
 import { useFeedbackStore } from "../../../store/feedbackStore";
-import { SessionAutocomplete } from "../../../components/common/SessionAutoComplete"; // Importação do componente
+import { SessionAutocomplete } from "../../../components/common/SessionAutoComplete";
+import { StockPreviewTable } from "../components/StockPreviewTable"; // <-- Importação do novo componente
 
 export function StockUploadPage() {
   const showFeedback = useFeedbackStore((state) => state.showFeedback);
@@ -44,7 +45,8 @@ export function StockUploadPage() {
 
   const [dragActive, setDragActive] = useState(false);
   const [file, setFile] = useState<File | null>(null);
-  const [previewData, setPreviewData] = useState<StockCsvRow[]>([]);
+  const [previewData, setPreviewData] = useState<any[]>([]);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<
     "idle" | "success" | "error"
@@ -107,11 +109,42 @@ export function StockUploadPage() {
     ) {
       setFile(selectedFile);
       setUploadStatus("idle");
+      setPreviewData([]);
+
       Papa.parse(selectedFile, {
         header: true,
         skipEmptyLines: true,
-        preview: 5,
-        complete: (results) => setPreviewData(results.data as StockCsvRow[]),
+        complete: async (results) => {
+          const rawData = results.data as any[];
+          const payload = rawData
+            .map((row) => ({
+              ean: String(row.ean || row.EAN || row.Ean || row.codigo || ""),
+              expectedQuantity: Number(
+                row.expectedQuantity ||
+                  row.ExpectedQuantity ||
+                  row.quantidade ||
+                  row.qtd ||
+                  0,
+              ),
+            }))
+            .filter((item) => item.ean.trim() !== "");
+
+          try {
+            setIsPreviewLoading(true);
+            const response = await api.post("/stock/preview", {
+              items: payload,
+            });
+
+            setPreviewData(response.data);
+            setUploadStatus("idle");
+          } catch (error) {
+            console.error("Erro ao gerar preview", error);
+            showFeedback("Erro ao validar produtos no sistema.", "error");
+            setUploadStatus("error");
+          } finally {
+            setIsPreviewLoading(false);
+          }
+        },
         error: () => setUploadStatus("error"),
       });
     } else {
@@ -124,19 +157,10 @@ export function StockUploadPage() {
     setIsUploading(true);
 
     try {
-      const payload = previewData
-        .map((row: any) => ({
-          ean: String(row.ean || row.EAN || row.Ean || row.codigo || ""),
-          expectedQuantity: Number(
-            row.expectedQuantity ||
-              row.ExpectedQuantity ||
-              row.quantidade ||
-              row.qtd ||
-              0,
-          ),
-        }))
-        .filter((item) => item.ean.trim() !== "");
-
+      const payload = previewData.map((item) => ({
+        ean: item.ean,
+        expectedQuantity: item.expectedQuantity,
+      }));
       const response = await api.post(
         `/import/expected-stock/${sessionId}`,
         payload,
@@ -228,7 +252,6 @@ export function StockUploadPage() {
 
   return (
     <div className="max-w-5xl mx-auto pb-10">
-      {/* Secção de Seleção de Inventário */}
       <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 mb-8 space-y-2">
         <label className="block text-sm font-medium text-textPrimary">
           Inventário em Edição
@@ -287,73 +310,89 @@ export function StockUploadPage() {
           </p>
         </div>
       ) : viewMode === "upload" ? (
-        <div
-          className={clsx(
-            "relative border-2 border-dashed rounded-xl p-12 text-center transition-all duration-200",
-            dragActive
-              ? "border-accent bg-blue-50/10"
-              : "border-gray-600 bg-gray-800/50 hover:border-gray-500",
-            uploadStatus === "success" && "border-green-500 bg-green-500/10",
-          )}
-          onDragEnter={() => setDragActive(true)}
-          onDragLeave={() => setDragActive(false)}
-          onDrop={(e) => {
-            e.preventDefault();
-            setDragActive(false);
-            if (e.dataTransfer.files?.[0]) handleFile(e.dataTransfer.files[0]);
-          }}
-        >
-          <input
-            type="file"
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            onChange={(e) =>
-              e.target.files?.[0] && handleFile(e.target.files[0])
-            }
-            accept=".csv"
-            disabled={isUploading}
-          />
-          <div className="flex flex-col items-center justify-center pointer-events-none">
-            {uploadStatus === "success" ? (
-              <>
-                <CheckCircle className="w-16 h-16 text-green-500 mb-4" />
-                <h3 className="text-xl font-semibold text-green-700">
-                  Importação Concluída!
-                </h3>
-              </>
-            ) : file ? (
-              <>
-                <FileSpreadsheet className="w-16 h-16 text-accent mb-4" />
-                <h3 className="text-lg font-medium text-textAccent">
-                  {file.name}
-                </h3>
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleUpload();
-                  }}
-                  disabled={isUploading}
-                  className="mt-4 z-50 pointer-events-auto bg-accent text-textAccent px-6 py-2 rounded-lg font-medium hover:bg-accent/90 flex items-center gap-2"
-                >
-                  {isUploading ? (
-                    <Loader2 className="animate-spin" />
-                  ) : (
-                    <UploadCloud size={20} />
-                  )}{" "}
-                  Confirmar Importação
-                </button>
-              </>
-            ) : (
-              <>
-                <UploadCloud className="w-16 h-16 text-gray-500 mb-4" />
-                <h3 className="text-lg font-medium text-textAccent">
-                  Arraste o arquivo CSV de stock aqui
-                </h3>
-                <p className="text-sm text-textSecondary mt-1">
-                  O arquivo deve conter as colunas 'ean' e 'quantidade'
-                </p>
-              </>
+        <div className="flex flex-col gap-6 animate-fade-in w-full">
+          <div
+            className={clsx(
+              "relative border-2 border-dashed rounded-xl p-12 text-center transition-all duration-200 w-full",
+              dragActive
+                ? "border-accent bg-blue-50/10"
+                : "border-gray-600 bg-gray-800/50 hover:border-gray-500",
+              uploadStatus === "success" && "border-green-500 bg-green-500/10",
             )}
+            onDragEnter={() => setDragActive(true)}
+            onDragLeave={() => setDragActive(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragActive(false);
+              if (e.dataTransfer.files?.[0])
+                handleFile(e.dataTransfer.files[0]);
+            }}
+          >
+            <input
+              type="file"
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              onChange={(e) =>
+                e.target.files?.[0] && handleFile(e.target.files[0])
+              }
+              accept=".csv"
+              disabled={isUploading}
+            />
+            <div className="flex flex-col items-center justify-center pointer-events-none">
+              {isPreviewLoading ? (
+                <div className="flex flex-col items-center gap-2 text-accent">
+                  <Loader2 className="w-8 h-8 animate-spin" />
+                  <p className="font-medium">
+                    Validando produtos no sistema...
+                  </p>
+                </div>
+              ) : uploadStatus === "success" ? (
+                <>
+                  <CheckCircle className="w-16 h-16 text-green-500 mb-4" />
+                  <h3 className="text-xl font-semibold text-green-700">
+                    Importação Concluída!
+                  </h3>
+                </>
+              ) : file ? (
+                <>
+                  <FileSpreadsheet className="w-16 h-16 text-accent mb-4" />
+                  <h3 className="text-lg font-medium text-textAccent">
+                    {file.name}
+                  </h3>
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleUpload();
+                    }}
+                    disabled={isUploading}
+                    className="mt-4 z-50 pointer-events-auto bg-accent text-textAccent px-6 py-2 rounded-lg font-medium hover:bg-accent/90 flex items-center gap-2"
+                  >
+                    {isUploading ? (
+                      <Loader2 className="animate-spin" />
+                    ) : (
+                      <UploadCloud size={20} />
+                    )}{" "}
+                    Confirmar Importação de {previewData.length} itens
+                  </button>
+                </>
+              ) : (
+                <>
+                  <UploadCloud className="w-16 h-16 text-gray-500 mb-4" />
+                  <h3 className="text-lg font-medium text-textAccent">
+                    Arraste o arquivo CSV de stock aqui
+                  </h3>
+                  <p className="text-sm text-textSecondary mt-1">
+                    O arquivo deve conter as colunas 'ean' e 'quantidade'
+                  </p>
+                </>
+              )}
+            </div>
           </div>
+
+          {previewData.length > 0 && uploadStatus !== "success" && (
+            <div className="w-full">
+              <StockPreviewTable data={previewData} preview={5} />
+            </div>
+          )}
         </div>
       ) : (
         <div className="bg-gray-800/50 border border-gray-700 rounded-xl overflow-hidden animate-fade-in">

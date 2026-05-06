@@ -14,7 +14,7 @@ public class StockController : ControllerBase
     private readonly InventoryDbContext _context;
     public StockController(InventoryDbContext context) => _context = context;
 
-    [HttpGet("{sessionId}")]
+    [HttpGet("{sessionId:guid}")]
     public async Task<IActionResult> GetExpectedStock(
         Guid sessionId,
         [FromQuery] string? search,
@@ -59,7 +59,7 @@ public class StockController : ControllerBase
         });
     }
 
-    [HttpPost("{sessionId}")]
+    [HttpPost("{sessionId:guid}")]
     public async Task<IActionResult> AddExpectedStock(Guid sessionId, [FromBody] ExpectedStockCreate request)
     {
         var product = await _context.Products.FirstOrDefaultAsync(p => p.Ean == request.Ean);
@@ -86,7 +86,7 @@ public class StockController : ControllerBase
         return Ok(new { message = "Estoque adicionado com sucesso." });
     }
 
-    [HttpPut("{id}")]
+    [HttpPut("{id:guid}")]
     public async Task<IActionResult> UpdateExpectedStock(Guid id, [FromBody] ExpectedStockUpdate request)
     {
         var stock = await _context.ExpectedStocks
@@ -117,7 +117,7 @@ public class StockController : ControllerBase
         return Ok(new { message = $"Item {stock.Product.Ean} atualizado com sucesso." });
     }
 
-    [HttpDelete("{id}")]
+    [HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteExpectedStock(Guid id)
     {
         var stock = await _context.ExpectedStocks.FindAsync(id);
@@ -126,6 +126,47 @@ public class StockController : ControllerBase
         _context.ExpectedStocks.Remove(stock);
         await _context.SaveChangesAsync();
         return Ok(new { message = "Item removido." });
+    }
+
+    [HttpPost("preview")]
+    public async Task<IActionResult> PreviewExpectedStock([FromBody] PreviewStockRequest request)
+    {
+        if (request.Items == null || !request.Items.Any())
+            return BadRequest(new { message = "Nenhum item fornecido para validação." });
+
+        var groupedItems = request.Items
+            .GroupBy(i => i.Ean)
+            .Select(g => new PreviewStockRequestItem
+            {
+                Ean = g.Key,
+                ExpectedQuantity = g.Sum(i => i.ExpectedQuantity)
+            })
+            .ToList();
+
+        var eans = groupedItems.Select(i => i.Ean).ToList();
+
+        var products = await _context.Products
+            .Where(p => eans.Contains(p.Ean))
+            .Select(p => new { p.Ean, p.Name, p.Price })
+            .ToListAsync();
+
+        var productDict = products
+            .DistinctBy(p => p.Ean)
+            .ToDictionary(p => p.Ean, p => p);
+
+        var enrichedItems = groupedItems.Select(item =>
+        {
+            var found = productDict.TryGetValue(item.Ean, out var product);
+            return new PreviewStockResponseItem
+            {
+                Ean = item.Ean,
+                ExpectedQuantity = item.ExpectedQuantity,
+                ProductName = found ? product.Name : "Produto não encontrado",
+                Price = found ? product?.Price : null
+            };
+        }).ToList();
+
+        return Ok(enrichedItems);
     }
 }
 
@@ -139,4 +180,24 @@ public class ExpectedStockUpdate
 {
     public string? newEan { get; set; }
     public int? ExpectedQuantity { get; set; }
+}
+
+
+public class PreviewStockRequest
+{
+    public List<PreviewStockRequestItem> Items { get; set; } = new();
+}
+
+public class PreviewStockRequestItem
+{
+    public required string Ean { get; set; }
+    public int ExpectedQuantity { get; set; }
+}
+
+public class PreviewStockResponseItem
+{
+    public required string Ean { get; set; }
+    public int ExpectedQuantity { get; set; }
+    public required string ProductName { get; set; }
+    public decimal? Price { get; set; }
 }
