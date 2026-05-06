@@ -15,7 +15,7 @@ import {
   X,
 } from "lucide-react";
 
-import type { ExpectedStockItem, StockCsvRow } from "../types/stock-types";
+import type { ExpectedStockItem } from "../types/stock-types";
 import { clsx } from "clsx";
 import { api } from "../../../lib/axios";
 import { useFeedbackStore } from "../../../store/feedbackStore";
