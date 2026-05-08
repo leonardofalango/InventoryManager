@@ -89,6 +89,33 @@ export function DashboardPage() {
     return () => clearInterval(interval);
   }, [selectedSession]);
 
+  const exportDiscrepanciesToCSV = (
+    items: DiscrepancyItem[],
+    sessionName: string,
+  ) => {
+    const headers = ["EAN", "Descrição", "Esperado", "Contado", "Diferença"];
+    const rows = items.map((item) => [
+      item.ean,
+      item.description,
+      item.expectedQuantity,
+      item.countedQuantity,
+      item.difference,
+    ]);
+    const csvContent = [headers, ...rows].map((e) => e.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `discrepancies_${sessionName || selectedSession}.csv`,
+    );
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleDiscrepanciesClick = async () => {
     if (!selectedSession) return;
 
@@ -233,7 +260,7 @@ export function DashboardPage() {
         />
         <StatCard
           title="Locais Identificados"
-          value={`${Math.round((data.totalLocationsCounted / data.totalLocations) * 100)}%`}
+          value={`${Math.round((data.totalLocationsCounted / data.totalLocations) * 100) | 0}%`}
           subtext={`${data.totalLocationsCounted} de ${data.totalLocations} etiquetas`}
           icon={MapPinCheck}
           color="text-blue-400"
@@ -346,16 +373,29 @@ export function DashboardPage() {
           <div className="bg-gray-800 rounded-xl border border-gray-700 shadow-xl w-full max-w-5xl max-h-[85vh] flex flex-col animate-fade-in">
             {/* Header do Modal */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
-              <h2 className="text-xl font-bold text-textAccent flex items-center gap-2">
-                <AlertTriangle className="text-yellow-500" size={24} />
-                Itens com Divergência
-              </h2>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="text-gray-400 hover:text-white transition-colors focus:outline-none"
-              >
-                <X size={24} />
-              </button>
+              <div className="title">
+                <h2 className="text-xl font-bold text-textAccent flex items-center gap-2">
+                  <AlertTriangle className="text-yellow-500" size={24} />
+                  Itens com Divergência
+                </h2>
+              </div>
+              <div className="actions flex items-center gap-4">
+                <button
+                  onClick={() =>
+                    exportDiscrepanciesToCSV(discrepancies, selectedSessionName)
+                  }
+                  className="text-sm font-medium text-white bg-accent hover:bg-accentHover transition-colors px-4 py-2 rounded-lg focus:outline-none"
+                >
+                  Exportar Discrepancias
+                </button>
+
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  className="text-gray-400 hover:text-white transition-colors focus:outline-none"
+                >
+                  <X size={24} />
+                </button>
+              </div>
             </div>
 
             {/* Corpo do Modal (Tabela) */}
