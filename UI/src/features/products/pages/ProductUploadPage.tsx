@@ -13,12 +13,14 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  Trash,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { api } from "../../../lib/axios";
 import { useFeedbackStore } from "../../../store/feedbackStore";
 import { SessionAutocomplete } from "../../../components/common/SessionAutoComplete";
 import { PreviewTable } from "../components/PreviewTable";
+import { ConfirmModal } from "../../../components/common/ConfirmModal"; // <-- Importado
 import type { ProductCsvRow } from "../types/product-types";
 import type { Product } from "../../../types";
 
@@ -26,19 +28,15 @@ export function ProductUploadPage() {
   const showFeedback = useFeedbackStore((state) => state.showFeedback);
   const { sessionId: routeSessionId } = useParams<{ sessionId: string }>();
 
-  // Estados de Sessão
   const [sessionId, setSessionId] = useState<string | undefined>(
     routeSessionId,
   );
   const [clientName, setClientName] = useState("");
-  const [isLoadingSession, setIsLoadingSession] = useState(!routeSessionId);
 
-  // Estado de Visualização
   const [viewMode, setViewMode] = useState<"loading" | "upload" | "manage">(
-    routeSessionId ? "manage" : "loading",
+    routeSessionId ? "manage" : "upload",
   );
 
-  // Estados da Gestão (CRUD)
   const [products, setProducts] = useState<Product[]>([]);
   const [totalItems, setTotalItems] = useState(0);
   const [loadingManage, setLoadingManage] = useState(false);
@@ -47,12 +45,18 @@ export function ProductUploadPage() {
   const [totalPages, setTotalPages] = useState(1);
   const pageSize = 10;
 
-  // Estados do Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Product | null>(null);
   const [formData, setFormData] = useState({ ean: "", name: "" });
 
-  // Estados do Upload
+  const [confirmConfig, setConfirmConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    isDanger?: boolean;
+  }>({ isOpen: false, title: "", message: "", onConfirm: () => {} });
+
   const [dragActive, setDragActive] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [previewData, setPreviewData] = useState<ProductCsvRow[]>([]);
@@ -61,30 +65,6 @@ export function ProductUploadPage() {
     "idle" | "success" | "error"
   >("idle");
 
-  // --- LÓGICA DE SESSÃO INICIAL ---
-  useEffect(() => {
-    if (!sessionId && !routeSessionId) {
-      api
-        .get("/inventorysession/active")
-        .then((res) => {
-          setClientName(res.data.clientName);
-          setSessionId(res.data.id);
-          setViewMode("manage");
-        })
-        .catch(() => {
-          showFeedback(
-            "Selecione um inventário para gerir os produtos.",
-            "info",
-          );
-          setViewMode("upload");
-        })
-        .finally(() => setIsLoadingSession(false));
-    } else {
-      setIsLoadingSession(false);
-    }
-  }, [routeSessionId, sessionId, showFeedback]);
-
-  // --- LÓGICA DE GESTÃO (CRUD) ---
   const fetchProducts = useCallback(async () => {
     if (!sessionId || viewMode !== "manage") return;
     setLoadingManage(true);
@@ -138,8 +118,7 @@ export function ProductUploadPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm("Deseja realmente excluir este produto?")) return;
+  const executeDelete = async (id: string) => {
     try {
       await api.delete(`/Products/${id}`);
       showFeedback("Produto removido com sucesso", "success");
@@ -147,6 +126,40 @@ export function ProductUploadPage() {
     } catch (error) {
       showFeedback("Erro ao remover produto", "error");
     }
+  };
+
+  const confirmDelete = (product: Product) => {
+    setConfirmConfig({
+      isOpen: true,
+      title: "Excluir Produto",
+      message: `Tem certeza de que deseja excluir o produto "${product.name}" EAN: ${product.ean}? Esta ação não pode ser desfeita.`,
+      isDanger: true,
+      onConfirm: () => executeDelete(product.id),
+    });
+  };
+
+  const executeDeleteAll = async () => {
+    if (!sessionId) return;
+    try {
+      await api.delete(`/Products/session/${sessionId}`);
+      showFeedback("Todos os produtos foram removidos com sucesso", "success");
+      setSearch("");
+      setPage(1);
+      fetchProducts();
+    } catch (error) {
+      showFeedback("Erro ao remover os produtos", "error");
+    }
+  };
+
+  const confirmDeleteAll = () => {
+    setConfirmConfig({
+      isOpen: true,
+      title: "Excluir Todos os Produtos",
+      message:
+        "Tem certeza de que deseja excluir TODOS os produtos desta sessão? Esta ação não pode ser desfeita.",
+      isDanger: true,
+      onConfirm: executeDeleteAll,
+    });
   };
 
   const openModal = (item?: Product) => {
@@ -160,7 +173,6 @@ export function ProductUploadPage() {
     setIsModalOpen(true);
   };
 
-  // --- LÓGICA DE UPLOAD ---
   const handleFile = (selectedFile: File) => {
     if (
       selectedFile?.type.includes("csv") ||
@@ -202,14 +214,6 @@ export function ProductUploadPage() {
       setIsUploading(false);
     }
   };
-
-  if (isLoadingSession) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-accent" />
-      </div>
-    );
-  }
 
   return (
     <div className="max-w-6xl mx-auto pb-10">
@@ -264,7 +268,14 @@ export function ProductUploadPage() {
       </div>
 
       {sessionId && viewMode === "manage" && (
-        <div className="flex justify-end mb-4">
+        <div className="flex justify-end gap-3 mb-4">
+          <button
+            onClick={confirmDeleteAll}
+            disabled={totalItems === 0 || loadingManage}
+            className="bg-red-500/10 text-red-400 border border-red-500/20 px-4 py-2 rounded-lg font-medium hover:bg-red-500/20 flex items-center gap-2 disabled:opacity-50 transition-colors"
+          >
+            <Trash size={20} /> Excluir Todos
+          </button>
           <button
             onClick={() => openModal()}
             className="bg-accent text-textAccent px-4 py-2 rounded-lg font-medium hover:bg-accent/90 flex items-center gap-2"
@@ -417,7 +428,7 @@ export function ProductUploadPage() {
                         <Edit2 size={18} />
                       </button>
                       <button
-                        onClick={() => handleDelete(p.id)}
+                        onClick={() => confirmDelete(p)}
                         className="p-2 text-textSecondary hover:text-red-400 rounded-lg transition-colors"
                       >
                         <Trash2 size={18} />
@@ -454,7 +465,6 @@ export function ProductUploadPage() {
         </div>
       )}
 
-      {/* MODAL DE CRIAÇÃO / EDIÇÃO */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-fade-in">
           <div className="bg-gray-800 rounded-xl max-w-md w-full border border-gray-700 shadow-2xl">
@@ -517,6 +527,16 @@ export function ProductUploadPage() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={confirmConfig.isOpen}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        isDanger={confirmConfig.isDanger}
+        onConfirm={confirmConfig.onConfirm}
+        onCancel={() => setConfirmConfig({ ...confirmConfig, isOpen: false })}
+        confirmText="Excluir"
+      />
     </div>
   );
 }

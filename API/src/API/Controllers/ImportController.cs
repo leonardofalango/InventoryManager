@@ -30,6 +30,7 @@ public class ImportController : ControllerBase
                 existing.Name = product.Name;
                 existing.Category = product.Category;
                 existing.Price = product.Price;
+                existing.DeletedAt = null;
             }
             else
             {
