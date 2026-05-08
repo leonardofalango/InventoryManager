@@ -23,7 +23,7 @@ public class ProductsController : ControllerBase
         [FromQuery] string? search = null)
     {
         var query = _context.Products
-            .Where(p => p.InventorySessionId == inventorySessionId)
+            .Where(p => p.InventorySessionId == inventorySessionId && p.DeletedAt == null)
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(search))
@@ -35,6 +35,7 @@ public class ProductsController : ControllerBase
         var totalItems = await query.CountAsync();
 
         var products = await query
+            .Where(p => p.DeletedAt == null)
             .OrderBy(p => p.Name)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
@@ -81,10 +82,10 @@ public class ProductsController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteProduct(Guid id)
     {
-        var product = await _context.Products.FindAsync(id);
+        var product = await _context.Products.Where(p => p.DeletedAt == null).FirstOrDefaultAsync(p => p.Id == id);
         if (product == null) return NotFound();
 
-        _context.Products.Remove(product);
+        product.DeletedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 
         return NoContent();

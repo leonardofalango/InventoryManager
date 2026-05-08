@@ -1,6 +1,6 @@
 namespace InventoryManager.Domain.Entities;
 
-public class InventoryCount
+public class InventoryCount : IAuditEntity
 {
     public Guid Id { get; set; } = Guid.NewGuid();
 
@@ -15,4 +15,7 @@ public class InventoryCount
     public Guid UserId { get; set; }
     public DateTime CountedAt { get; set; } = DateTime.UtcNow;
     public int CountVersion { get; set; } = 1;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? UpdatedAt { get; set; }
+    public DateTime? DeletedAt { get; set; }
 }

@@ -1,6 +1,6 @@
 namespace InventoryManager.Domain.Entities;
 
-public class User
+public class User : IAuditEntity
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Name { get; set; } = string.Empty;
@@ -11,4 +11,7 @@ public class User
     public bool isRecovery { get; set; } = false;
     public Guid? TeamId { get; set; }
     public Team? Team { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? UpdatedAt { get; set; }
+    public DateTime? DeletedAt { get; set; }
 }

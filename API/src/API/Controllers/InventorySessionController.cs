@@ -52,7 +52,7 @@ public class InventorySessionController : ControllerBase
         int divergences = 0;
         foreach (var ean in allEans)
         {
-            var expectedQty = expectedStocks.FirstOrDefault(e => e.Product?.Ean == ean)?.ExpectedQuantity ?? 0;
+            var expectedQty = expectedStocks.FirstOrDefault(e => e.Product?.Ean == ean && e.Product.DeletedAt == null)?.ExpectedQuantity ?? 0;
 
             var countedQty = countedPerEan.FirstOrDefault(c => c.Ean == ean)?.TotalCount ?? 0;
 
@@ -74,7 +74,7 @@ public class InventorySessionController : ControllerBase
             .Select(c => new
             {
                 Ean = c.Ean,
-                ProductName = _context.Products.Where(p => p.Ean == c.Ean).Select(p => p.Name).FirstOrDefault() ?? "Produto Desconhecido",
+                ProductName = _context.Products.Where(p => p.Ean == c.Ean && p.DeletedAt == null).Select(p => p.Name).FirstOrDefault() ?? "Produto Desconhecido",
                 ProductLocation = c.ProductLocation != null ? c.ProductLocation.Barcode.ToString() : "N/A",
                 Quantity = c.Quantity,
                 CountedAt = c.CountedAt
@@ -96,10 +96,12 @@ public class InventorySessionController : ControllerBase
         int progress = totalSKUs > 0 ? (int)Math.Round((double)countedSKUs / totalSKUs * 100) : 0;
         if (progress > 100) progress = 100;
 
+
+
         return Ok(new
         {
             clientName = session.ClientName,
-            status = session.Status.ToString(),
+            status = session.Status,
             progress,
             totalSKUs,
             countedSKUs,

@@ -23,6 +23,7 @@ public class TeamController : ControllerBase
     {
 
         var teams = _context.Teams.Include(t => t.Members)
+            .Where(t => t.DeletedAt == null)
             .Select(t => new
             {
                 t.Id,
@@ -64,8 +65,9 @@ public class TeamController : ControllerBase
         var team = await _context.Teams.FindAsync(id);
         if (team == null) return NotFound();
 
-        _context.Teams.Remove(team);
+        team.DeletedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
+
         return NoContent();
     }
 }

@@ -23,20 +23,24 @@ public class StockController : ControllerBase
     {
         var query = _context.ExpectedStocks
             .Include(e => e.Product)
-            .Where(e => e.InventorySessionId == sessionId)
+            .Where(e => e.InventorySessionId == sessionId && e.DeletedAt == null)
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(search))
         {
             var searchLower = search.ToLower();
-            query = query.Where(e =>
+            query = query.Where(
+                e =>
                 e.Product.Ean.Contains(searchLower) ||
-                (e.Product != null && e.Product.Name.ToLower().Contains(searchLower)));
+                e.Product != null && e.Product.Name.ToLower().Contains(searchLower)
+                && e.DeletedAt == null
+            );
         }
 
         var totalItems = await query.CountAsync();
 
         var items = await query
+            .Where(e => e.DeletedAt == null)
             .OrderBy(e => e.Product.Ean)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
@@ -62,11 +66,19 @@ public class StockController : ControllerBase
     [HttpPost("{sessionId:guid}")]
     public async Task<IActionResult> AddExpectedStock(Guid sessionId, [FromBody] ExpectedStockCreate request)
     {
-        var product = await _context.Products.FirstOrDefaultAsync(p => p.Ean == request.Ean);
+        var product = await _context.Products
+            .Where(p => p.DeletedAt == null)
+            .FirstOrDefaultAsync(p => p.Ean == request.Ean);
+
         if (product == null) return NotFound(new { message = "Produto não encontrado." });
 
         var existingStock = await _context.ExpectedStocks
-            .FirstOrDefaultAsync(e => e.InventorySessionId == sessionId && e.ProductId == product.Id);
+            .FirstOrDefaultAsync(
+                e =>
+                e.InventorySessionId == sessionId &&
+                e.ProductId == product.Id &&
+                e.DeletedAt == null
+            );
 
         if (existingStock != null)
         {
@@ -91,6 +103,7 @@ public class StockController : ControllerBase
     {
         var stock = await _context.ExpectedStocks
             .Include(e => e.Product)
+            .Where(e => e.DeletedAt == null)
             .FirstOrDefaultAsync(e => e.Id == id);
 
         if (stock == null) return NotFound(new { message = "Item não encontrado." });
@@ -99,12 +112,12 @@ public class StockController : ControllerBase
         {
             var existingStock = await _context.ExpectedStocks.
                 Include(e => e.Product)
-                .FirstOrDefaultAsync(e => e.Product.Ean == request.newEan && e.Id != id);
+                .FirstOrDefaultAsync(e => e.Product.Ean == request.newEan && e.Id != id && e.DeletedAt == null);
 
             if (existingStock != null)
                 return BadRequest(new { message = "Já existe um item com esse EAN." });
 
-            var newProduct = await _context.Products.FirstOrDefaultAsync(p => p.Ean == request.newEan);
+            var newProduct = await _context.Products.FirstOrDefaultAsync(p => p.Ean == request.newEan && p.DeletedAt == null);
             if (newProduct == null) return NotFound(new { message = "Produto não encontrado." });
             stock.ProductId = newProduct.Id;
             stock.Product = newProduct;
@@ -120,10 +133,11 @@ public class StockController : ControllerBase
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteExpectedStock(Guid id)
     {
-        var stock = await _context.ExpectedStocks.FindAsync(id);
+        var stock = await _context.ExpectedStocks.Where(e => e.DeletedAt == null).FirstOrDefaultAsync(e => e.Id == id);
         if (stock == null) return NotFound(new { message = "Item não encontrado." });
 
-        _context.ExpectedStocks.Remove(stock);
+        stock.DeletedAt = DateTime.UtcNow;
+
         await _context.SaveChangesAsync();
         return Ok(new { message = "Item removido." });
     }
@@ -146,7 +160,7 @@ public class StockController : ControllerBase
         var eans = groupedItems.Select(i => i.Ean).ToList();
 
         var products = await _context.Products
-            .Where(p => eans.Contains(p.Ean))
+            .Where(p => eans.Contains(p.Ean) && p.DeletedAt == null)
             .Select(p => new { p.Ean, p.Name, p.Price })
             .ToListAsync();
 
@@ -161,7 +175,7 @@ public class StockController : ControllerBase
             {
                 Ean = item.Ean,
                 ExpectedQuantity = item.ExpectedQuantity,
-                ProductName = found ? product.Name : "Produto não encontrado",
+                ProductName = found ? product!.Name : "Produto não encontrado",
                 Price = found ? product?.Price : null
             };
         }).ToList();
