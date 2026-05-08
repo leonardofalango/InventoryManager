@@ -70,7 +70,7 @@ public class InventorySessionController : ControllerBase
         var recentCounts = await _context.InventoryCounts
             .Where(c => c.InventorySessionId == id)
             .OrderByDescending(c => c.CountedAt)
-            .Take(5)
+            .Take(10)
             .Select(c => new
             {
                 Ean = c.Ean,
@@ -81,15 +81,27 @@ public class InventorySessionController : ControllerBase
             })
             .ToListAsync();
 
-        var sectors = session.Counts
-            .Where(c => c.ProductLocation != null)
-            .GroupBy(c => c.ProductLocation!.Barcode)
-            .Select(g => new
+        var activeLocations = await _context.ProductLocations
+            .Where(pl => pl.InventorySessionId == id && pl.DeletedAt == null)
+            .ToListAsync();
+
+        var countsByLocation = session.Counts
+            .Where(c => c.ProductLocationId != null)
+            .GroupBy(c => c.ProductLocationId!.Value)
+            .ToDictionary(g => g.Key, g => g.Sum(c => c.Quantity));
+
+        var sectors = activeLocations
+            .Select(loc =>
             {
-                name = g.Key,
-                percent = totalItems > 0 ? Math.Round((double)g.Sum(c => c.Quantity) / totalItems * 100, 2) : 0
+                var qty = countsByLocation.GetValueOrDefault(loc.Id, 0);
+                return new
+                {
+                    name = loc.Barcode,
+                    percent = totalItems > 0 ? Math.Round((double)qty / totalItems * 100, 2) : 0
+                };
             })
             .OrderByDescending(s => s.percent)
+            .ThenBy(s => s.name)
             .ToList();
 
         int progress = totalSKUs > 0 ? (int)Math.Round((double)countedSKUs / totalSKUs * 100) : 0;
@@ -381,6 +393,19 @@ public class InventorySessionController : ControllerBase
         }
 
         return Ok(discrepancies.OrderByDescending(d => Math.Abs(d.Difference)));
+    }
+
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> DeleteSession(Guid id)
+    {
+        var session = await _context.InventorySessions.FindAsync(id);
+        if (session == null)
+            return NotFound(new { message = "Sessão de inventário não encontrada." });
+
+        _context.InventorySessions.Remove(session);
+        await _context.SaveChangesAsync();
+
+        return Ok(new { message = "Sessão de inventário excluída com sucesso." });
     }
 }
 
