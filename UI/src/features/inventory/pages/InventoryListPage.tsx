@@ -12,9 +12,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
+  Trash2,
 } from "lucide-react";
 import { api } from "../../../lib/axios";
 import { useFeedbackStore } from "../../../store/feedbackStore";
+import { ConfirmModal } from "../../../components/common/ConfirmModal";
 
 interface InventorySessionModel {
   id: string;
@@ -57,6 +59,15 @@ export function InventoryListPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedSession, setSelectedSession] =
     useState<InventorySessionModel | null>(null);
+
+  const [confirmConfig, setConfirmConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    isDanger?: boolean;
+    confirmText?: string;
+  }>({ isOpen: false, title: "", message: "", onConfirm: () => {} });
 
   const [formData, setFormData] = useState({
     clientName: "",
@@ -177,12 +188,33 @@ export function InventoryListPage() {
     }
   };
 
-  const handleUpdateStatus = async (
+  const executeDeleteSession = async (id: string) => {
+    try {
+      await api.delete(`/inventorysession/${id}`);
+      showFeedback("Inventário excluído com sucesso.", "success");
+      fetchSessions();
+    } catch (error: any) {
+      showFeedback("Erro ao excluir o inventário.", "error");
+    }
+  };
+
+  const confirmDelete = (
     e: React.MouseEvent,
     id: string,
-    newStatus: number,
+    inventoryName: string,
   ) => {
     e.stopPropagation();
+    setConfirmConfig({
+      isOpen: true,
+      title: "Excluir Inventário",
+      message: `Tem certeza de que deseja excluir o inventário "${inventoryName}"? Todos os dados associados serão perdidos.`,
+      isDanger: true,
+      confirmText: "Excluir",
+      onConfirm: () => executeDeleteSession(id),
+    });
+  };
+
+  const executeUpdateStatus = async (id: string, newStatus: number) => {
     try {
       await api.put(`/inventorysession/${id}/status`, { status: newStatus });
       showFeedback("Status do inventário atualizado.", "success");
@@ -192,8 +224,25 @@ export function InventoryListPage() {
     }
   };
 
+  const confirmStatusChange = (
+    e: React.MouseEvent,
+    id: string,
+    newStatus: number,
+    actionName: string,
+    inventoryName: string,
+  ) => {
+    e.stopPropagation();
+    setConfirmConfig({
+      isOpen: true,
+      title: `${actionName} Inventário`,
+      message: `Tem certeza de que deseja ${actionName.toLowerCase()} o inventário "${inventoryName}"?`,
+      isDanger: false,
+      confirmText: "Confirmar",
+      onConfirm: () => executeUpdateStatus(id, newStatus),
+    });
+  };
+
   const getStatusInfo = (status: number | string) => {
-    // Trata tanto número (antigo) quanto string mapeada do Enum (novo endpoint)
     const statusVal =
       typeof status === "string"
         ? status === "Open"
@@ -254,7 +303,6 @@ export function InventoryListPage() {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full bg-gray-900 border border-gray-700 rounded-md py-2 pl-10 pr-4 text-gray-200 focus:outline-none focus:border-accent"
           />
-          {/* Indicador visual de que está buscando no servidor */}
           {isLoading && searchTerm !== debouncedSearch && (
             <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-accent" />
           )}
@@ -275,7 +323,6 @@ export function InventoryListPage() {
           ) : (
             sessions.map((session) => {
               const statusInfo = getStatusInfo(session.status);
-              // Verifica o valor numérico do status caso ele venha como string do backend
               const statusNum =
                 typeof session.status === "string"
                   ? session.status === "Open"
@@ -329,7 +376,15 @@ export function InventoryListPage() {
                     <div className="flex items-center gap-2">
                       {statusNum === 0 && (
                         <button
-                          onClick={(e) => handleUpdateStatus(e, session.id, 1)}
+                          onClick={(e) =>
+                            confirmStatusChange(
+                              e,
+                              session.id,
+                              1,
+                              "Iniciar",
+                              session.clientName,
+                            )
+                          }
                           className="text-yellow-500 hover:text-yellow-400 flex items-center gap-1 text-sm bg-gray-900 px-2 py-1 rounded border border-gray-700"
                         >
                           <Play size={16} /> Iniciar
@@ -337,13 +392,31 @@ export function InventoryListPage() {
                       )}
                       {statusNum === 1 && (
                         <button
-                          onClick={(e) => handleUpdateStatus(e, session.id, 2)}
+                          onClick={(e) =>
+                            confirmStatusChange(
+                              e,
+                              session.id,
+                              2,
+                              "Finalizar",
+                              session.clientName,
+                            )
+                          }
                           className="text-green-500 hover:text-green-400 flex items-center gap-1 text-sm bg-gray-900 px-2 py-1 rounded border border-gray-700"
                         >
                           <CheckCircle size={16} /> Finalizar
                         </button>
                       )}
-                      <button className="text-textSecondary hover:text-textAccent ml-2 flex items-center gap-1">
+
+                      <button
+                        onClick={(e) =>
+                          confirmDelete(e, session.id, session.clientName)
+                        }
+                        className="text-accent hover:text-accentHover flex items-center gap-1 text-sm px-2 py-1 rounded ml-1"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+
+                      <button className="text-textSecondary hover:text-textAccent ml-1 flex items-center gap-1">
                         <Edit3 size={18} />
                       </button>
                     </div>
@@ -355,7 +428,7 @@ export function InventoryListPage() {
         </div>
       )}
 
-      {/* Controles de Paginação (Somente exibe se houver itens) */}
+      {/* Controles de Paginação */}
       {sessions.length > 0 && (
         <div className="flex items-center justify-between bg-gray-800 p-4 rounded-lg border border-gray-700 mt-4 text-sm text-textSecondary">
           <span>
@@ -381,7 +454,7 @@ export function InventoryListPage() {
         </div>
       )}
 
-      {/* O Modal permanece exatamente o mesmo, mantendo sua UI intacta */}
+      {/* MODAL DE CRIAÇÃO/EDIÇÃO */}
       {(isCreateModalOpen || isEditModalOpen) && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-sm p-4">
           <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
@@ -532,6 +605,16 @@ export function InventoryListPage() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={confirmConfig.isOpen}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        isDanger={confirmConfig.isDanger}
+        onConfirm={confirmConfig.onConfirm}
+        onCancel={() => setConfirmConfig({ ...confirmConfig, isOpen: false })}
+        confirmText={confirmConfig.confirmText}
+      />
     </div>
   );
 }

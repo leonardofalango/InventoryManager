@@ -52,7 +52,7 @@ public class InventorySessionController : ControllerBase
         int divergences = 0;
         foreach (var ean in allEans)
         {
-            var expectedQty = expectedStocks.FirstOrDefault(e => e.Product?.Ean == ean)?.ExpectedQuantity ?? 0;
+            var expectedQty = expectedStocks.FirstOrDefault(e => e.Product?.Ean == ean && e.Product.DeletedAt == null)?.ExpectedQuantity ?? 0;
 
             var countedQty = countedPerEan.FirstOrDefault(c => c.Ean == ean)?.TotalCount ?? 0;
 
@@ -70,41 +70,64 @@ public class InventorySessionController : ControllerBase
         var recentCounts = await _context.InventoryCounts
             .Where(c => c.InventorySessionId == id)
             .OrderByDescending(c => c.CountedAt)
-            .Take(5)
+            .Take(10)
             .Select(c => new
             {
                 Ean = c.Ean,
-                ProductName = _context.Products.Where(p => p.Ean == c.Ean).Select(p => p.Name).FirstOrDefault() ?? "Produto Desconhecido",
+                ProductName = _context.Products.Where(p => p.Ean == c.Ean && p.DeletedAt == null).Select(p => p.Name).FirstOrDefault() ?? "Produto Desconhecido",
                 ProductLocation = c.ProductLocation != null ? c.ProductLocation.Barcode.ToString() : "N/A",
                 Quantity = c.Quantity,
                 CountedAt = c.CountedAt
             })
             .ToListAsync();
 
-        var sectors = session.Counts
-            .Where(c => c.ProductLocation != null)
-            .GroupBy(c => c.ProductLocation!.Barcode)
-            .Select(g => new
+        var activeLocations = await _context.ProductLocations
+            .Where(pl => pl.InventorySessionId == id && pl.DeletedAt == null)
+            .ToListAsync();
+
+        var countsByLocation = session.Counts
+            .Where(c => c.ProductLocationId != null)
+            .GroupBy(c => c.ProductLocationId!.Value)
+            .ToDictionary(g => g.Key, g => g.Sum(c => c.Quantity));
+
+        var sectors = activeLocations
+            .Select(loc =>
             {
-                name = g.Key,
-                percent = totalItems > 0 ? Math.Round((double)g.Sum(c => c.Quantity) / totalItems * 100, 2) : 0
+                var qty = countsByLocation.GetValueOrDefault(loc.Id, 0);
+                return new
+                {
+                    name = loc.Barcode,
+                    percent = totalItems > 0 ? Math.Round((double)qty / totalItems * 100, 2) : 0
+                };
             })
             .OrderByDescending(s => s.percent)
-            .Take(5)
+            .ThenBy(s => s.name)
             .ToList();
 
         int progress = totalSKUs > 0 ? (int)Math.Round((double)countedSKUs / totalSKUs * 100) : 0;
         if (progress > 100) progress = 100;
 
+        int totalLocations = await _context.ProductLocations.Where(
+            pl => pl.InventorySessionId == id && pl.DeletedAt == null
+        ).CountAsync();
+
+        int totalLocationsCounted = session.Counts
+            .Where(c => c.ProductLocationId != null)
+            .Select(c => c.ProductLocationId)
+            .Distinct()
+            .Count();
+
         return Ok(new
         {
             clientName = session.ClientName,
-            status = session.Status.ToString(),
+            status = session.Status,
             progress,
             totalSKUs,
             countedSKUs,
             totalItems,
             divergences,
+            totalLocations,
+            totalLocationsCounted,
             activeCounters,
             recentCounts,
             sectors
@@ -370,6 +393,19 @@ public class InventorySessionController : ControllerBase
         }
 
         return Ok(discrepancies.OrderByDescending(d => Math.Abs(d.Difference)));
+    }
+
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> DeleteSession(Guid id)
+    {
+        var session = await _context.InventorySessions.FindAsync(id);
+        if (session == null)
+            return NotFound(new { message = "Sessão de inventário não encontrada." });
+
+        _context.InventorySessions.Remove(session);
+        await _context.SaveChangesAsync();
+
+        return Ok(new { message = "Sessão de inventário excluída com sucesso." });
     }
 }
 

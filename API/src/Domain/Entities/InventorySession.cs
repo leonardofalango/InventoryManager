@@ -2,7 +2,7 @@ namespace InventoryManager.Domain.Entities;
 
 public enum InventoryStatus { Open, InProgress, Closed }
 
-public class InventorySession
+public class InventorySession : IAuditEntity
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public string ClientName { get; set; } = string.Empty;
@@ -18,4 +18,7 @@ public class InventorySession
     public ICollection<Product> Products { get; set; } = new List<Product>();
     public ICollection<ExpectedStock> ExpectedStocks { get; set; } = new List<ExpectedStock>();
     public ICollection<ProductLocation> ProductLocations { get; set; } = new List<ProductLocation>();
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? UpdatedAt { get; set; }
+    public DateTime? DeletedAt { get; set; }
 }

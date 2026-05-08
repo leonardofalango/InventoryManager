@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Search, Calendar, Loader2, X } from "lucide-react";
 import { api } from "../../lib/axios";
 import { clsx } from "clsx";
+import type { InventorySession } from "../../types";
+import { useFeedbackStore } from "../../store/feedbackStore";
 
 interface SessionAutocompleteProps {
   onSelect: (sessionId: string, clientName: string) => void;
@@ -9,6 +11,17 @@ interface SessionAutocompleteProps {
   selectedName?: string;
   className?: string;
 }
+
+const getSessionStatusText = (status: number) => {
+  switch (status) {
+    case 1:
+      return "Em Andamento";
+    case 2:
+      return "Finalizado";
+    default:
+      return "Agendado";
+  }
+};
 
 export function SessionAutocomplete({
   onSelect,
@@ -18,20 +31,16 @@ export function SessionAutocomplete({
 }: SessionAutocompleteProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [sessions, setSessions] = useState<any[]>([]);
+  const [sessions, setSessions] = useState<InventorySession[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const user = JSON.parse(localStorage.getItem("auth-storage") || "{}")?.state
-    ?.user;
+  const feedbackService = useFeedbackStore();
 
   const fetchSessions = useCallback(async (query: string) => {
     setIsLoading(true);
-    console.log("user:", user);
-
     try {
-      const uri =
-        `/inventorysession?page=1&pageSize=20&search=${query}` +
-        (user?.role === "ADMIN" ? "&allInventories=true" : "");
+      const uri = `/inventorysession?page=1&pageSize=20&search=${query}&allInventories=true`;
       const res = await api.get(uri);
       const data = res.data.data || (Array.isArray(res.data) ? res.data : []);
       setSessions(data);
@@ -50,6 +59,42 @@ export function SessionAutocomplete({
   }, [search, fetchSessions, isOpen]);
 
   useEffect(() => {
+    let isMounted = true;
+
+    const initializeSession = async () => {
+      setIsLoading(true);
+      try {
+        const uri = `/inventorysession?page=1&pageSize=20&search=&allInventories=true`;
+        const res = await api.get(uri);
+        const data = res.data.data || (Array.isArray(res.data) ? res.data : []);
+
+        if (!isMounted) return;
+        setSessions(data);
+
+        const activeSessions = data.filter(
+          (s: InventorySession) => s.status === 1,
+        );
+
+        if (activeSessions.length > 1) {
+          feedbackService.showFeedback(
+            "Existem múltiplas sessões ativas. Por favor, finalize as sessões em andamento antes de iniciar uma nova.",
+            "info",
+          );
+        } else if (activeSessions.length === 1) {
+          if (!selectedId) {
+            onSelect(activeSessions[0].id, activeSessions[0].clientName);
+          }
+        }
+      } catch (error) {
+        console.error("Erro ao inicializar sessões", error);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+
+    initializeSession();
+
+    // Lida com o clique fora do componente para fechar o dropdown
     function handleClickOutside(event: MouseEvent) {
       if (
         wrapperRef.current &&
@@ -59,7 +104,13 @@ export function SessionAutocomplete({
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      isMounted = false;
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+    // Desabilitamos o aviso do linter aqui porque queremos que rode estritamente 1 vez
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -116,7 +167,7 @@ export function SessionAutocomplete({
                   <Calendar size={12} />{" "}
                   {new Date(s.startDate).toLocaleDateString()}
                   {s.status !== undefined &&
-                    ` - Status: ${s.status === 0 ? "Agendado" : s.status === 1 ? "Em Andamento" : "Finalizado"}`}
+                    ` - Status: ${getSessionStatusText(s.status)}`}
                 </span>
               </button>
             ))

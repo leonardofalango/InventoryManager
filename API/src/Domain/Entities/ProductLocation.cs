@@ -1,6 +1,6 @@
 namespace InventoryManager.Domain.Entities;
 
-public class ProductLocation
+public class ProductLocation : IAuditEntity
 {
     public Guid Id { get; set; }
     public required string Barcode { get; set; }
@@ -10,4 +10,7 @@ public class ProductLocation
     public Guid? CustomerId { get; set; }
     public Customer? Customer { get; set; }
     public ICollection<InventoryCount>? InventoryCounts { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? UpdatedAt { get; set; }
+    public DateTime? DeletedAt { get; set; }
 }

@@ -1,6 +1,6 @@
 namespace InventoryManager.Domain.Entities;
 
-public class ExpectedStock
+public class ExpectedStock : IAuditEntity
 {
     public Guid Id { get; set; } = Guid.NewGuid();
 
@@ -11,4 +11,7 @@ public class ExpectedStock
     public required Product Product { get; set; }
 
     public int ExpectedQuantity { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? UpdatedAt { get; set; }
+    public DateTime? DeletedAt { get; set; }
 }

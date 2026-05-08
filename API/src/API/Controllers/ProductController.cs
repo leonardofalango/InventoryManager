@@ -23,7 +23,7 @@ public class ProductsController : ControllerBase
         [FromQuery] string? search = null)
     {
         var query = _context.Products
-            .Where(p => p.InventorySessionId == inventorySessionId)
+            .Where(p => p.InventorySessionId == inventorySessionId && p.DeletedAt == null)
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(search))
@@ -35,6 +35,7 @@ public class ProductsController : ControllerBase
         var totalItems = await query.CountAsync();
 
         var products = await query
+            .Where(p => p.DeletedAt == null)
             .OrderBy(p => p.Name)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
@@ -58,7 +59,7 @@ public class ProductsController : ControllerBase
         return CreatedAtAction(nameof(GetProducts), new { inventorySessionId = product.InventorySessionId }, product);
     }
 
-    [HttpPut("{id}")]
+    [HttpPut("{id:guid}")]
     public async Task<IActionResult> UpdateProduct(Guid id, Product product)
     {
         if (id != product.Id) return BadRequest();
@@ -78,13 +79,34 @@ public class ProductsController : ControllerBase
         return NoContent();
     }
 
-    [HttpDelete("{id}")]
+    [HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteProduct(Guid id)
     {
-        var product = await _context.Products.FindAsync(id);
+        var product = await _context.Products.Where(p => p.DeletedAt == null).FirstOrDefaultAsync(p => p.Id == id);
         if (product == null) return NotFound();
 
-        _context.Products.Remove(product);
+        product.DeletedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        return NoContent();
+    }
+
+    [HttpDelete("session/{inventorySessionId:guid}")]
+    public async Task<IActionResult> DeleteAllProductsBySession(Guid inventorySessionId)
+    {
+        var products = await _context.Products
+            .Where(p => p.InventorySessionId == inventorySessionId && p.DeletedAt == null)
+            .ToListAsync();
+
+        if (!products.Any()) return NoContent();
+
+        var now = DateTime.UtcNow;
+
+        foreach (var product in products)
+        {
+            product.DeletedAt = now;
+        }
+
         await _context.SaveChangesAsync();
 
         return NoContent();

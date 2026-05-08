@@ -56,10 +56,10 @@ public class ProductLocationController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteProductLocation(Guid id)
     {
-        var location = await _context.ProductLocations.FindAsync(id);
+        var location = await _context.ProductLocations.Where(pl => pl.DeletedAt == null).FirstOrDefaultAsync(pl => pl.Id == id);
         if (location == null) return NotFound();
 
-        _context.ProductLocations.Remove(location);
+        location.DeletedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 
         return NoContent();
@@ -68,7 +68,7 @@ public class ProductLocationController : ControllerBase
     [HttpGet("{inventorySessionId}/{barcode}")]
     public async Task<ActionResult<ProductLocation>> GetProductLocationByBarcode(Guid inventorySessionId, string barcode)
     {
-        var location = await _context.ProductLocations.Where(pl => pl.InventorySessionId == inventorySessionId && pl.Barcode == barcode).FirstOrDefaultAsync();
+        var location = await _context.ProductLocations.Where(pl => pl.DeletedAt == null).FirstOrDefaultAsync(pl => pl.InventorySessionId == inventorySessionId && pl.Barcode == barcode);
         if (location == null) return NotFound();
         return location;
     }

@@ -24,6 +24,7 @@ public class UserController : ControllerBase
     public async Task<ActionResult<IEnumerable<User>>> GetUsers()
     {
         var users = await _context.Users
+            .Where(u => u.DeletedAt == null)
             .Select(u => new
             {
                 u.Id,
@@ -80,7 +81,7 @@ public class UserController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> UpdateUser(Guid id, [FromBody] User user)
     {
-        if (id != user.Id) return BadRequest("ID do usuário não corresponde.");
+        if (id != user.Id) return BadRequest("Requisição inválida.");
 
         var existingUser = await _context.Users.FindAsync(id);
         if (existingUser == null) return NotFound("Usuário não encontrado.");
@@ -88,6 +89,7 @@ public class UserController : ControllerBase
         existingUser.Name = user.Name;
         existingUser.Role = user.Role;
         existingUser.TeamId = user.TeamId;
+        existingUser.UpdatedAt = DateTime.UtcNow;
 
         try
         {
@@ -100,6 +102,21 @@ public class UserController : ControllerBase
             else
                 throw;
         }
+
+        return NoContent();
+    }
+
+    [Authorize(Roles = "ADMIN,MANAGER")]
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> DeleteUser(Guid id)
+    {
+        if (id == Guid.Empty) return BadRequest("Id inválido.");
+
+        var user = await _context.Users.FindAsync(id);
+        if (user == null) return NotFound("Usuário não encontrado.");
+
+        user.DeletedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
 
         return NoContent();
     }

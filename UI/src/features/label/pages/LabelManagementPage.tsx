@@ -10,6 +10,7 @@ import {
 import { useFeedbackStore } from "../../../store/feedbackStore";
 import { api } from "../../../lib/axios";
 import { SessionAutocomplete } from "../../../components/common/SessionAutoComplete";
+import { ConfirmModal } from "../../../components/common/ConfirmModal";
 
 interface Label {
   id: string;
@@ -31,7 +32,24 @@ export function LabelManagementPage() {
   const [newBarcode, setNewBarcode] = useState("");
   const [activeTab, setActiveTab] = useState<"bulk" | "manage">("bulk");
 
-  // Busca etiquetas sempre que a sessão selecionada mudar
+  const [confirmConfig, setConfirmConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    isDanger?: boolean;
+  }>({ isOpen: false, title: "", message: "", onConfirm: () => {} });
+
+  const confirmDelete = (label: Label) => {
+    setConfirmConfig({
+      isOpen: true,
+      title: "Excluir Etiqueta",
+      message: `Tem certeza de que deseja excluir a etiqueta ${label.barcode}? Esta ação não pode ser desfeita.`,
+      isDanger: true,
+      onConfirm: () => handleDeleteLabel(label.id),
+    });
+  };
+
   useEffect(() => {
     const fetchLabels = async () => {
       if (!selectedSession) {
@@ -68,7 +86,6 @@ export function LabelManagementPage() {
         },
       );
       showFeedback("Etiquetas vinculadas ao inventário!", "success");
-      // Forçar recarregamento das etiquetas
       const response = await api.get(
         `/ProductLocation/labels/${selectedSession}`,
       );
@@ -106,8 +123,6 @@ export function LabelManagementPage() {
   };
 
   const handleDeleteLabel = async (id: string) => {
-    if (!window.confirm("Deseja realmente remover esta etiqueta?")) return;
-
     try {
       await api.delete(`/ProductLocation/${id}`);
       showFeedback("Etiqueta removida!", "success");
@@ -268,7 +283,7 @@ export function LabelManagementPage() {
                             </td>
                             <td className="px-4 py-3 flex justify-center">
                               <button
-                                onClick={() => handleDeleteLabel(label.id)}
+                                onClick={() => confirmDelete(label)}
                                 className="text-red-400 hover:text-red-300 p-1 rounded hover:bg-red-400/10 transition-colors"
                                 title="Remover Etiqueta"
                               >
@@ -290,6 +305,16 @@ export function LabelManagementPage() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={confirmConfig.isOpen}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        isDanger={confirmConfig.isDanger}
+        onConfirm={confirmConfig.onConfirm}
+        onCancel={() => setConfirmConfig({ ...confirmConfig, isOpen: false })}
+        confirmText="Excluir"
+      />
     </div>
   );
 }

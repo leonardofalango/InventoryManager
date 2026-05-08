@@ -29,7 +29,7 @@ export interface InventorySession {
   id: string;
   clientId: string;
   clientName: string;
-  status: "OPEN" | "IN_PROGRESS" | "CLOSED" | "AUDIT";
+  status: number; // 0 = Agendado, 1 = Em Andamento, 2 = Finalizado
   startDate: string;
   totalItemsCounted: number;
   accuracy?: number;
