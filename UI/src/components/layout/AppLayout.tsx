@@ -37,6 +37,12 @@ const MENU_ITEMS: { path: string; label: string; icon: any; roles: Role[] }[] =
       roles: ["ADMIN", "MANAGER"],
     },
     {
+      path: "/products",
+      label: "Produtos",
+      icon: Package,
+      roles: ["ADMIN", "MANAGER"],
+    },
+    {
       path: "/stock/",
       label: "Estoque",
       icon: CirclePile,
@@ -46,12 +52,6 @@ const MENU_ITEMS: { path: string; label: string; icon: any; roles: Role[] }[] =
       path: "/label",
       label: "Etiquetas",
       icon: QrCode,
-      roles: ["ADMIN", "MANAGER"],
-    },
-    {
-      path: "/products",
-      label: "Produtos",
-      icon: Package,
       roles: ["ADMIN", "MANAGER"],
     },
     {

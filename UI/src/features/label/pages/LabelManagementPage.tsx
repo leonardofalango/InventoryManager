@@ -31,7 +31,6 @@ export function LabelManagementPage() {
   const [newBarcode, setNewBarcode] = useState("");
   const [activeTab, setActiveTab] = useState<"bulk" | "manage">("bulk");
 
-  // Busca etiquetas sempre que a sessão selecionada mudar
   useEffect(() => {
     const fetchLabels = async () => {
       if (!selectedSession) {
@@ -68,7 +67,6 @@ export function LabelManagementPage() {
         },
       );
       showFeedback("Etiquetas vinculadas ao inventário!", "success");
-      // Forçar recarregamento das etiquetas
       const response = await api.get(
         `/ProductLocation/labels/${selectedSession}`,
       );

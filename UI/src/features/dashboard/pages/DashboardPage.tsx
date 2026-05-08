@@ -5,55 +5,74 @@ import {
   CheckCircle2,
   AlertTriangle,
   Loader2,
-  X, // Importado para o botão de fechar o modal
+  X,
+  SearchX,
+  MapPinCheck,
 } from "lucide-react";
 import { AxiosError } from "axios";
 import { api } from "../../../lib/axios";
 import type { DashboardData, DiscrepancyItem } from "../types/dashboard-types";
 import { SessionAutocomplete } from "../../../components/common/SessionAutoComplete";
 
+const getStatusConfig = (status?: number) => {
+  switch (status) {
+    case 1:
+      return {
+        label: "Em Andamento",
+        textColor: "text-green-400",
+        dotColor: "bg-green-500 animate-pulse",
+      };
+    case 2:
+      return {
+        label: "Finalizado",
+        textColor: "text-gray-400",
+        dotColor: "bg-gray-500",
+      };
+    default:
+      return {
+        label: "Agendado",
+        textColor: "text-blue-400",
+        dotColor: "bg-blue-500",
+      };
+  }
+};
+
 export function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isFetching = useRef(false);
 
   const [selectedSession, setSelectedSession] = useState<string>("");
   const [selectedSessionName, setSelectedSessionName] = useState<string>("");
 
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [discrepancies, setDiscrepancies] = useState<DiscrepancyItem[]>([]);
   const [isLoadingDiscrepancies, setIsLoadingDiscrepancies] = useState(false);
 
   useEffect(() => {
+    if (!selectedSession) {
+      setData(null);
+      setError(null);
+      return;
+    }
+
     const fetchDashboardData = async () => {
       if (isFetching.current) return;
       isFetching.current = true;
 
+      if (!data) setLoading(true);
+
       try {
         setError(null);
-        let targetSessionId = selectedSession || null;
-
-        if (!targetSessionId) {
-          const activeRes = await api.get("/InventorySession/active");
-          targetSessionId = activeRes.data.id || null;
-        }
-
-        setCurrentSessionId(targetSessionId);
-
-        if (targetSessionId) {
-          const statsRes = await api.get<DashboardData>(
-            `/InventorySession/${targetSessionId}/dashboard`,
-          );
-          setData(statsRes.data);
-        }
+        const statsRes = await api.get<DashboardData>(
+          `/InventorySession/${selectedSession}/dashboard`,
+        );
+        setData(statsRes.data);
       } catch (err: unknown) {
         const error = err as AxiosError;
         if (error.response?.status === 404) {
-          setError(
-            "Nenhum inventário ativo encontrado para a sua equipe no momento.",
-          );
+          setError("Dados de dashboard não encontrados para este inventário.");
         } else {
           setError("Erro ao carregar dados do dashboard.");
         }
@@ -71,14 +90,14 @@ export function DashboardPage() {
   }, [selectedSession]);
 
   const handleDiscrepanciesClick = async () => {
-    if (!currentSessionId) return;
+    if (!selectedSession) return;
 
     setIsModalOpen(true);
     setIsLoadingDiscrepancies(true);
 
     try {
       const response = await api.get<DiscrepancyItem[]>(
-        `/InventorySession/${currentSessionId}/dashboard/discrepancies`,
+        `/InventorySession/${selectedSession}/dashboard/discrepancies`,
       );
       setDiscrepancies(response.data);
     } catch (error) {
@@ -87,6 +106,43 @@ export function DashboardPage() {
       setIsLoadingDiscrepancies(false);
     }
   };
+
+  // TELA DE AGUARDANDO SELEÇÃO (Quando não tem id preenchido)
+  if (!selectedSession) {
+    return (
+      <div className="flex flex-col space-y-6 animate-fade-in">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-textAccent">
+              Dashboard Geral
+            </h1>
+            <p className="text-textSecondary">
+              Selecione uma sessão para iniciar o monitoramento
+            </p>
+          </div>
+          <div className="w-full sm:w-96 bg-gray-800 rounded-lg border border-gray-700 p-1">
+            <SessionAutocomplete
+              selectedId={selectedSession}
+              selectedName={selectedSessionName}
+              onSelect={(id, name) => {
+                setSelectedSession(id);
+                setSelectedSessionName(name);
+              }}
+            />
+          </div>
+        </div>
+        <div className="flex flex-col justify-center items-center h-full min-h-[400px] bg-gray-800/50 rounded-xl border border-gray-700 border-dashed">
+          <SearchX className="text-gray-500 mb-4" size={48} />
+          <p className="text-gray-400 text-lg">
+            Nenhum inventário selecionado.
+          </p>
+          <p className="text-gray-500 text-sm mt-2">
+            Use a barra de busca acima para visualizar as métricas.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (loading && !data) {
     return (
@@ -102,7 +158,7 @@ export function DashboardPage() {
   if (error) {
     return (
       <div className="flex flex-col space-y-4">
-        <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
+        <div className="w-full sm:w-96 bg-gray-800 rounded-lg border border-gray-700 p-1">
           <SessionAutocomplete
             selectedId={selectedSession}
             selectedName={selectedSessionName}
@@ -125,6 +181,8 @@ export function DashboardPage() {
 
   if (!data) return null;
 
+  const statusConfig = getStatusConfig(data.status);
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -133,24 +191,25 @@ export function DashboardPage() {
             Dashboard Geral
           </h1>
           <p className="text-textSecondary">
-            {selectedSession
-              ? `Visão da sessão: ${selectedSessionName}`
-              : "Visão em tempo real da operação atual"}
+            Visão da sessão: {selectedSessionName || data.clientName}
           </p>
         </div>
 
         <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
-          {!selectedSession && (
-            <div className="bg-gray-800 px-4 py-2 rounded-lg border border-gray-700 flex items-center gap-3 w-full sm:w-auto">
-              <span className="text-textSecondary text-sm whitespace-nowrap">
-                Inventário Ativo:
-              </span>
-              <span className="text-green-400 font-semibold flex items-center gap-2 whitespace-nowrap">
-                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                {data.clientName}
-              </span>
-            </div>
-          )}
+          <div className="bg-gray-800 px-4 py-2 rounded-lg border border-gray-700 flex items-center gap-3 w-full sm:w-auto shadow-sm">
+            <span className="text-textSecondary text-sm whitespace-nowrap">
+              Status:
+            </span>
+            <span
+              className={`${statusConfig.textColor} font-semibold flex items-center gap-2 whitespace-nowrap`}
+            >
+              <span
+                className={`w-2 h-2 rounded-full ${statusConfig.dotColor}`}
+              ></span>
+              {statusConfig.label}
+            </span>
+          </div>
+
           <div className="w-full sm:w-72 bg-gray-800 rounded-lg border border-gray-700 p-1">
             <SessionAutocomplete
               selectedId={selectedSession}
@@ -164,13 +223,20 @@ export function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard
           title="Progresso (SKUs)"
           value={`${data.progress}%`}
           subtext={`${data.countedSKUs} de ${data.totalSKUs} SKUs`}
           icon={BarChart3}
           color="text-accent"
+        />
+        <StatCard
+          title="Locais Identificados"
+          value={`${Math.round((data.totalLocationsCounted / data.totalLocations) * 100)}%`}
+          subtext={`${data.totalLocationsCounted} de ${data.totalLocations} etiquetas`}
+          icon={MapPinCheck}
+          color="text-blue-400"
         />
         <StatCard
           title="Total Contado"
@@ -202,7 +268,6 @@ export function DashboardPage() {
         </h3>
         <div className="relative h-6 bg-gray-700 rounded-full overflow-hidden">
           <div
-            //  TODO: FIX PROGRESS BAR
             className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-600 to-sky-500 transition-all duration-1000 ease-out"
             style={{ width: `${data.progress}%` }}
           ></div>
@@ -268,7 +333,7 @@ export function DashboardPage() {
               ))
             ) : (
               <p className="text-gray-500 text-sm italic">
-                Nenhuma leitura vinculada a um local ainda.
+                Nenhum setor encontrado para este inventário.
               </p>
             )}
           </div>
@@ -375,7 +440,6 @@ export function DashboardPage() {
   );
 }
 
-// O componente StatCard foi atualizado para receber onClick e mudar o cursor
 function StatCard({ title, value, subtext, icon: Icon, color, onClick }: any) {
   return (
     <div

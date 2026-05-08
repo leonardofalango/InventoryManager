@@ -8,12 +8,14 @@ export interface RecentCount {
 
 export interface DashboardData {
   clientName: string;
-  status: string;
+  status: number;
   progress: number;
   totalSKUs: number;
   countedSKUs: number;
   totalItems: number;
   divergences: number;
+  totalLocationsCounted: number;
+  totalLocations: number;
   activeCounters: number;
   recentCounts: RecentCount[];
   sectors: SectorData[];

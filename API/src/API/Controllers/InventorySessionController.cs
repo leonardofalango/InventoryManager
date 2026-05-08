@@ -90,13 +90,20 @@ public class InventorySessionController : ControllerBase
                 percent = totalItems > 0 ? Math.Round((double)g.Sum(c => c.Quantity) / totalItems * 100, 2) : 0
             })
             .OrderByDescending(s => s.percent)
-            .Take(5)
             .ToList();
 
         int progress = totalSKUs > 0 ? (int)Math.Round((double)countedSKUs / totalSKUs * 100) : 0;
         if (progress > 100) progress = 100;
 
+        int totalLocations = await _context.ProductLocations.Where(
+            pl => pl.InventorySessionId == id && pl.DeletedAt == null
+        ).CountAsync();
 
+        int totalLocationsCounted = session.Counts
+            .Where(c => c.ProductLocationId != null)
+            .Select(c => c.ProductLocationId)
+            .Distinct()
+            .Count();
 
         return Ok(new
         {
@@ -107,6 +114,8 @@ public class InventorySessionController : ControllerBase
             countedSKUs,
             totalItems,
             divergences,
+            totalLocations,
+            totalLocationsCounted,
             activeCounters,
             recentCounts,
             sectors
