@@ -47,14 +47,14 @@ export function ScanPage() {
   >([]);
 
   useEffect(() => {
-    const focusInput = () => {
+    const handleGlobalFocus = () => {
       if (!isCameraOpen && !showManualInput && !showQuantityModal) {
         inputRef.current?.focus();
       }
     };
-    focusInput();
-    const interval = setInterval(focusInput, 1000);
-    return () => clearInterval(interval);
+
+    window.addEventListener("click", handleGlobalFocus);
+    return () => window.removeEventListener("click", handleGlobalFocus);
   }, [isCameraOpen, showManualInput, showQuantityModal]);
 
   useEffect(() => {
