@@ -342,54 +342,57 @@ public class InventorySessionController : ControllerBase
     }
 
     [HttpGet("{sessionId}/dashboard/discrepancies")]
+
     public async Task<ActionResult<IEnumerable<DiscrepancyItemDto>>> GetDiscrepancies(Guid sessionId)
     {
+        var productsInfo = await _context.Products
+            .Where(p => p.InventorySessionId == sessionId)
+            .Select(p => new { p.Ean, p.Name })
+            .ToListAsync();
+
         var expectedStocks = await _context.ExpectedStocks
-            .Include(e => e.Product)
             .Where(e => e.InventorySessionId == sessionId)
+            .GroupBy(e => e.Product.Ean)
+            .Select(g => new
+            {
+                Ean = g.Key,
+                ExpectedQuantity = g.Sum(e => e.ExpectedQuantity)
+            })
             .ToListAsync();
 
         var actualCounts = await _context.InventoryCounts
-            .Include(c => c.ProductLocation)
             .Where(c => c.InventorySessionId == sessionId)
-            .GroupBy(c => new { c.Ean, c.ProductLocation.Description })
+            .GroupBy(c => c.Ean)
             .Select(g => new
             {
-                Ean = g.Key.Ean,
-                Description = g.Key.Description,
+                Ean = g.Key,
                 TotalCounted = g.Sum(x => x.Quantity)
             })
             .ToListAsync();
 
+        var allEans = expectedStocks.Select(e => e.Ean)
+            .Union(actualCounts.Select(c => c.Ean))
+            .Distinct();
+
         var discrepancies = new List<DiscrepancyItemDto>();
 
-        foreach (var expected in expectedStocks)
+        foreach (var ean in allEans)
         {
-            var countRecord = actualCounts.FirstOrDefault(c => c.Ean == expected.Product?.Ean);
-            var countedQty = countRecord?.TotalCounted ?? 0;
+            var expectedQty = expectedStocks.FirstOrDefault(e => e.Ean == ean)?.ExpectedQuantity ?? 0;
+            var countedQty = actualCounts.FirstOrDefault(c => c.Ean == ean)?.TotalCounted ?? 0;
 
-            if (countedQty != expected.ExpectedQuantity)
+            if (expectedQty != countedQty)
             {
+                var productName = productsInfo.FirstOrDefault(p => p.Ean == ean)?.Name ?? "Produto Não Cadastrado";
+
                 discrepancies.Add(new DiscrepancyItemDto
                 {
-                    Ean = expected.Product?.Ean,
-                    Description = expected.Product?.Name ?? "Descrição não disponível",
-                    ExpectedQuantity = expected.ExpectedQuantity,
+                    Ean = ean,
+                    Description = productName,
+                    ExpectedQuantity = expectedQty,
                     CountedQuantity = countedQty
                 });
             }
-        }
-
-        var unexpectedCounts = actualCounts.Where(c => !expectedStocks.Any(e => e.Product?.Ean == c.Ean));
-        foreach (var unexpected in unexpectedCounts)
-        {
-            discrepancies.Add(new DiscrepancyItemDto
-            {
-                Ean = unexpected.Ean,
-                Description = unexpected.Description ?? "Descrição não disponível",
-                ExpectedQuantity = 0,
-                CountedQuantity = unexpected.TotalCounted
-            });
         }
 
         return Ok(discrepancies.OrderByDescending(d => Math.Abs(d.Difference)));

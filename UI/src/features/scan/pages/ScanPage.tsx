@@ -10,6 +10,7 @@ import {
   AlertCircle,
   RefreshCcw,
   ClipboardList,
+  Hash,
 } from "lucide-react";
 
 import { useFeedbackStore } from "../../../store/feedbackStore";
@@ -36,20 +37,25 @@ export function ScanPage() {
   const [manualInput, setManualInput] = useState("");
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [showManualInput, setShowManualInput] = useState(false);
+
+  const [scanQuantity, setScanQuantity] = useState<number>(1);
+  const [showQuantityModal, setShowQuantityModal] = useState(false);
+  const [tempQuantity, setTempQuantity] = useState<string>("");
+
   const [scannedItems, setScannedItems] = useState<
-    { id: string; code: string; time: string; success: boolean }[]
+    { id: string; code: string; time: string; success: boolean; qty: number }[]
   >([]);
 
   useEffect(() => {
     const focusInput = () => {
-      if (!isCameraOpen && !showManualInput) {
+      if (!isCameraOpen && !showManualInput && !showQuantityModal) {
         inputRef.current?.focus();
       }
     };
     focusInput();
     const interval = setInterval(focusInput, 1000);
     return () => clearInterval(interval);
-  }, [isCameraOpen, showManualInput]);
+  }, [isCameraOpen, showManualInput, showQuantityModal]);
 
   useEffect(() => {
     const fetchActiveSession = async () => {
@@ -87,13 +93,17 @@ export function ScanPage() {
         return;
       }
 
+      // Salva a quantidade a ser enviada e já reseta o estado para a próxima leitura
+      const qtyToSubmit = scanQuantity;
+      setScanQuantity(1);
+
       try {
         const response = await api.post(
           `/inventorysession/${activeSession.id}/count`,
           {
             ean: cleanCode,
             productLocationId: locationId,
-            quantity: 1,
+            quantity: qtyToSubmit,
             countVersion: 1,
           },
         );
@@ -107,11 +117,15 @@ export function ScanPage() {
               minute: "2-digit",
             }),
             success: true,
+            qty: qtyToSubmit,
           },
           ...prev.slice(0, 49),
         ]);
         vibrate(80);
-        showFeedback(`Lido: ${cleanCode}`, "success");
+        showFeedback(
+          `Lido: ${cleanCode} ${qtyToSubmit > 1 ? `(x${qtyToSubmit})` : ""}`,
+          "success",
+        );
       } catch (error: any) {
         setScannedItems((prev) => [
           {
@@ -122,6 +136,7 @@ export function ScanPage() {
               minute: "2-digit",
             }),
             success: false,
+            qty: qtyToSubmit,
           },
           ...prev,
         ]);
@@ -132,7 +147,7 @@ export function ScanPage() {
         );
       }
     },
-    [activeSession, isLocationLocked, locationId, showFeedback],
+    [activeSession, isLocationLocked, locationId, showFeedback, scanQuantity],
   );
 
   const handleHiddenInput = (e: React.FormEvent<HTMLFormElement>) => {
@@ -217,6 +232,27 @@ export function ScanPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Botão de Quantidade Desktop */}
+            {isLocationLocked && (
+              <button
+                onClick={() => {
+                  setTempQuantity("");
+                  setShowQuantityModal(true);
+                }}
+                className={`hidden md:flex items-center justify-center p-2 rounded-lg transition-colors ${
+                  scanQuantity > 1
+                    ? "bg-accent text-gray-900 font-bold"
+                    : "bg-gray-700 hover:bg-gray-600 text-gray-300"
+                }`}
+                title="Informar Quantidade"
+              >
+                <Hash size={18} />
+                {scanQuantity > 1 && (
+                  <span className="ml-1 text-xs">x{scanQuantity}</span>
+                )}
+              </button>
+            )}
+
             <button
               onClick={() => setShowManualInput(true)}
               className="hidden md:flex p-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-gray-300 transition-colors"
@@ -228,6 +264,7 @@ export function ScanPage() {
                 onClick={() => {
                   setIsLocationLocked(false);
                   setScannedItems([]);
+                  setScanQuantity(1);
                 }}
                 className="flex items-center justify-center px-3 py-2 md:py-1.5 bg-gray-700/80 md:bg-red-900/40 active:bg-gray-600 md:hover:bg-red-900/60 rounded-lg md:rounded text-gray-200 md:text-red-400 border border-gray-600 md:border-red-800 shadow-sm transition-colors"
               >
@@ -243,6 +280,24 @@ export function ScanPage() {
           </div>
         </div>
       </div>
+
+      {/* Banner de alerta quando a quantidade é maior que 1 */}
+      {scanQuantity > 1 && isLocationLocked && (
+        <div className="bg-accent/20 border-b border-accent/50 text-accent px-4 py-2 flex items-center justify-between animate-pulse shadow-inner">
+          <div className="flex items-center gap-2">
+            <Hash size={18} />
+            <span className="text-sm font-bold uppercase tracking-wider">
+              Próximo item: {scanQuantity} unidades
+            </span>
+          </div>
+          <button
+            onClick={() => setScanQuantity(1)}
+            className="p-1.5 bg-gray-800 rounded hover:bg-gray-700 transition-colors"
+          >
+            <X size={14} className="text-gray-300" />
+          </button>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto p-3 md:p-4 flex flex-col gap-2 bg-gray-900/50 md:bg-transparent">
         {scannedItems.length === 0 ? (
@@ -280,9 +335,16 @@ export function ScanPage() {
                 )}
                 <div className="flex flex-col">
                   <span
-                    className={`font-mono text-xl md:text-base font-bold tracking-wider ${item.success ? "text-textAccent" : "text-red-100"}`}
+                    className={`font-mono text-xl md:text-base font-bold tracking-wider flex items-center gap-2 ${
+                      item.success ? "text-textAccent" : "text-red-100"
+                    }`}
                   >
                     {item.code}
+                    {item.qty > 1 && (
+                      <span className="bg-accent text-gray-900 text-[10px] md:text-xs px-2 py-0.5 rounded-full font-black">
+                        x{item.qty}
+                      </span>
+                    )}
                   </span>
                   {!item.success && (
                     <span className="text-[10px] text-red-400 font-bold uppercase">
@@ -299,7 +361,27 @@ export function ScanPage() {
         )}
       </div>
 
-      <div className="md:hidden bg-gray-800 border-t border-gray-700 p-4 flex gap-4 pb-6 z-10">
+      <div className="md:hidden bg-gray-800 border-t border-gray-700 p-4 flex gap-3 pb-6 z-10">
+        <button
+          onClick={() => {
+            if (isLocationLocked) {
+              setTempQuantity("");
+              setShowQuantityModal(true);
+            } else {
+              showFeedback("Bipe a localização primeiro", "error");
+            }
+          }}
+          className={`flex-1 flex flex-col items-center justify-center py-3 rounded-xl border transition-colors ${
+            scanQuantity > 1
+              ? "bg-accent text-gray-900 border-accent"
+              : "bg-gray-700 text-textAccent border-gray-600 active:bg-gray-600"
+          }`}
+        >
+          <Hash size={24} className="mb-1" />
+          <span className="text-[10px] font-bold uppercase">
+            {scanQuantity > 1 ? `Qtd: x${scanQuantity}` : "Quantidade"}
+          </span>
+        </button>
         <button
           onClick={() => setShowManualInput(true)}
           className="flex-1 flex flex-col items-center justify-center py-3 bg-gray-700 active:bg-gray-600 rounded-xl text-textAccent border border-gray-600"
@@ -316,6 +398,67 @@ export function ScanPage() {
         </button>
       </div>
 
+      {/* Modal de Quantidade */}
+      {showQuantityModal && (
+        <div className="absolute inset-0 bg-black/90 md:bg-black/60 z-50 flex items-end md:items-center justify-center p-0 md:p-4 animate-fade-in">
+          <div className="bg-gray-800 rounded-t-3xl md:rounded-xl p-6 md:p-5 w-full md:max-w-sm border-t md:border border-gray-600 shadow-2xl pb-10 md:pb-5">
+            <div className="flex justify-between items-center mb-6 md:mb-4">
+              <h3 className="text-textAccent text-xl md:text-base font-bold flex items-center gap-2">
+                <Hash className="text-accent" size={20} />
+                Multiplicador
+              </h3>
+              <button
+                onClick={() => setShowQuantityModal(false)}
+                className="p-2 md:p-1 bg-gray-700 rounded-full text-gray-300"
+              >
+                <X size={24} className="md:w-5 md:h-5" />
+              </button>
+            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const qty = parseInt(tempQuantity, 10);
+                if (!isNaN(qty) && qty > 0) {
+                  setScanQuantity(qty);
+                } else {
+                  setScanQuantity(1);
+                }
+                setTempQuantity("");
+                setShowQuantityModal(false);
+              }}
+              className="flex flex-col gap-4"
+            >
+              <div className="text-center mb-2">
+                <p className="text-gray-400 text-sm">
+                  A quantidade informada será aplicada{" "}
+                  <strong className="text-textAccent">
+                    apenas na próxima leitura
+                  </strong>
+                  .
+                </p>
+              </div>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={tempQuantity}
+                onChange={(e) => setTempQuantity(e.target.value)}
+                autoFocus
+                className="w-full bg-gray-900 border-2 md:border border-gray-600 rounded-xl md:rounded-lg py-4 md:py-2 px-6 md:px-3 text-3xl md:text-2xl text-center font-mono font-bold text-textAccent outline-none focus:border-accent"
+                placeholder="Ex: 12"
+              />
+              <button
+                type="submit"
+                className="w-full bg-accent hover:bg-accent/80 py-4 md:py-3 rounded-xl md:rounded-lg text-gray-900 font-extrabold uppercase text-lg transition-colors"
+              >
+                Confirmar
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Digitação Manual */}
       {showManualInput && (
         <div className="absolute inset-0 bg-black/90 md:bg-black/60 z-50 flex items-end md:items-center justify-center p-0 md:p-4">
           <div className="bg-gray-800 rounded-t-3xl md:rounded-xl p-6 md:p-5 w-full md:max-w-sm border-t md:border border-gray-600 shadow-2xl pb-10 md:pb-5">
