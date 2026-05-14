@@ -74,7 +74,7 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-gray-900 flex items-center justify-center p-0 md:p-4">
+    <div className="min-h-[100dvh] w-full bg-gray-900 flex items-center justify-center p-0 md:p-4">
       <div className="w-full h-screen md:h-auto max-w-md bg-gray-900 md:bg-gray-800 flex flex-col justify-center p-6 md:p-8 md:rounded-xl md:shadow-2xl md:border md:border-gray-700 space-y-8 md:space-y-6">
         <div className="text-center flex justify-center mb-4 md:mb-8">
           <img
