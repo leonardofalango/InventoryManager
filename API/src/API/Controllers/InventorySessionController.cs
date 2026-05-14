@@ -235,8 +235,15 @@ public class InventorySessionController : ControllerBase
         }
 
         var activeSession = await _context.InventorySessions
-            .Where(s => s.TeamId == user.TeamId &&
-                       (s.Status == InventoryStatus.Open || s.Status == InventoryStatus.InProgress))
+            .Where(
+                s => s.TeamId == user.TeamId &&
+                (
+                user.Role == "COUNTER"
+                    ? s.Status == InventoryStatus.InProgress
+                    : s.Status == InventoryStatus.Open ||
+                    s.Status == InventoryStatus.InProgress
+                )
+            )
             .OrderByDescending(s => s.StartDate)
             .FirstOrDefaultAsync();
 
