@@ -8,6 +8,7 @@ import {
   X,
   SearchX,
   MapPinCheck,
+  Download,
 } from "lucide-react";
 import { AxiosError } from "axios";
 import { api } from "../../../lib/axios";
@@ -49,6 +50,59 @@ export function DashboardPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [discrepancies, setDiscrepancies] = useState<DiscrepancyItem[]>([]);
   const [isLoadingDiscrepancies, setIsLoadingDiscrepancies] = useState(false);
+
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportFullReport = async () => {
+    if (!selectedSession) return;
+    setIsExporting(true);
+
+    try {
+      const response = await api.get(`/Export/full-report/${selectedSession}`);
+      const items = response.data;
+
+      const headers = [
+        "EAN",
+        "Descrição",
+        "Categoria",
+        "Preço",
+        "Esperado",
+        "Contado",
+        "Diferença",
+      ];
+
+      const rows = items.map((item: any) => [
+        item.ean,
+        `"${item.name || ""}"`,
+        `"${item.category || ""}"`,
+        item.price,
+        item.expectedQuantity,
+        item.countedQuantity,
+        item.difference,
+      ]);
+
+      const csvContent = [headers, ...rows].map((e) => e.join(",")).join("\n");
+      const blob = new Blob(["\ufeff" + csvContent], {
+        type: "text/csv;charset=utf-8;",
+      });
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute(
+        "download",
+        `relatorio_completo_${selectedSessionName || selectedSession}.csv`,
+      );
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error("Erro ao exportar relatório completo:", error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   useEffect(() => {
     if (!selectedSession) {
@@ -134,7 +188,6 @@ export function DashboardPage() {
     }
   };
 
-  // TELA DE AGUARDANDO SELEÇÃO (Quando não tem id preenchido)
   if (!selectedSession) {
     return (
       <div className="flex flex-col space-y-6 animate-fade-in">
@@ -223,6 +276,20 @@ export function DashboardPage() {
         </div>
 
         <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
+          <button
+            onClick={handleExportFullReport}
+            disabled={isExporting}
+            className="bg-accent hover:bg-accentHover text-textAccent px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50 focus:outline-none"
+            title="Exportar todas as contagens e discrepâncias (CSV)"
+          >
+            {isExporting ? (
+              <Loader2 className="animate-spin" size={18} />
+            ) : (
+              <Download size={18} />
+            )}
+            <span className="whitespace-nowrap">Exportar Completo</span>
+          </button>
+
           <div className="bg-gray-800 px-4 py-2 rounded-lg border border-gray-700 flex items-center gap-3 w-full sm:w-auto shadow-sm">
             <span className="text-textSecondary text-sm whitespace-nowrap">
               Status:
