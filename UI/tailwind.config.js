@@ -11,6 +11,7 @@ export default {
         textPrimary: "#f7fafc",
         textSecondary: "#d1d5db",
         textAccent: "#ffffff",
+        bgColor: "#111827",
       },
     },
   },

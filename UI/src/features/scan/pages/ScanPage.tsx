@@ -47,27 +47,37 @@ export function ScanPage() {
   >([]);
 
   useEffect(() => {
-    const focusInput = () => {
+    if (!isCameraOpen && !showManualInput && !showQuantityModal) {
+      const timeout = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+      return () => clearTimeout(timeout);
+    }
+  }, [isCameraOpen, showManualInput, showQuantityModal]);
+
+  useEffect(() => {
+    const handleGlobalFocus = () => {
       if (!isCameraOpen && !showManualInput && !showQuantityModal) {
         inputRef.current?.focus();
       }
     };
-    focusInput();
-    const interval = setInterval(focusInput, 1000);
-    return () => clearInterval(interval);
+
+    window.addEventListener("click", handleGlobalFocus);
+    return () => window.removeEventListener("click", handleGlobalFocus);
   }, [isCameraOpen, showManualInput, showQuantityModal]);
 
+  const fetchActiveSession = async () => {
+    try {
+      const response = await api.get("/inventorysession/active");
+      setActiveSession(response.data);
+    } catch (error: any) {
+      setActiveSession(null);
+    } finally {
+      setIsLoadingSession(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchActiveSession = async () => {
-      try {
-        const response = await api.get("/inventorysession/active");
-        setActiveSession(response.data);
-      } catch (error: any) {
-        setActiveSession(null);
-      } finally {
-        setIsLoadingSession(false);
-      }
-    };
     fetchActiveSession();
   }, []);
 
@@ -93,7 +103,6 @@ export function ScanPage() {
         return;
       }
 
-      // Salva a quantidade a ser enviada e já reseta o estado para a próxima leitura
       const qtyToSubmit = scanQuantity;
       setScanQuantity(1);
 
@@ -145,6 +154,7 @@ export function ScanPage() {
           error.response?.data?.message || "Erro ao registrar",
           "error",
         );
+        fetchActiveSession();
       }
     },
     [activeSession, isLocationLocked, locationId, showFeedback, scanQuantity],
@@ -178,6 +188,13 @@ export function ScanPage() {
         <p className="text-gray-500 text-sm md:text-base">
           Nenhum inventário ativo no momento.
         </p>
+        <button
+          onClick={fetchActiveSession}
+          className="mt-6 flex items-center justify-center gap-2 bg-accent hover:bg-accent/80 text-gray-900 font-bold uppercase py-3 px-6 rounded-xl transition-colors active:scale-95 shadow-lg"
+        >
+          <RefreshCcw size={20} />
+          Verificar Novamente
+        </button>
       </div>
     );
   }
@@ -299,7 +316,7 @@ export function ScanPage() {
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto p-3 md:p-4 flex flex-col gap-2 bg-gray-900/50 md:bg-transparent">
+      <div className="flex-1 overflow-y-auto p-3 md:p-4 flex flex-col gap-2 bg-gray-900/50 md:bg-transparent pb-32">
         {scannedItems.length === 0 ? (
           <div className="m-auto text-center flex flex-col items-center gap-4 opacity-40">
             <ScanLine size={64} className="text-gray-400 md:w-12 md:h-12" />
@@ -361,7 +378,7 @@ export function ScanPage() {
         )}
       </div>
 
-      <div className="md:hidden bg-gray-800 border-t border-gray-700 p-4 flex gap-3 pb-6 z-10">
+      <div className="md:hidden fixed bottom-0 left-0 w-full bg-gray-800 border-t border-gray-700 p-4 flex gap-3 pb-6 z-30 shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.3)]">
         <button
           onClick={() => {
             if (isLocationLocked) {

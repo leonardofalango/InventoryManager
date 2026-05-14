@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Http;
 using System.Security.Claims;
 using System.Text.Json;
+using System.Linq.Expressions;
 
 namespace InventoryManager.Infrastructure.Persistence;
 
@@ -30,6 +31,21 @@ public class InventoryDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            if (typeof(IAuditEntity).IsAssignableFrom(entityType.ClrType))
+            {
+                var parameter = Expression.Parameter(entityType.ClrType, "e");
+                var propertyMethodInfo = typeof(EF).GetMethod("Property")?.MakeGenericMethod(typeof(DateTime?));
+                var deletedAtProperty = Expression.Call(propertyMethodInfo!, parameter, Expression.Constant("DeletedAt"));
+                var compareExpression = Expression.Equal(deletedAtProperty, Expression.Constant(null, typeof(DateTime?)));
+                var lambda = Expression.Lambda(compareExpression, parameter);
+
+                modelBuilder.Entity(entityType.ClrType).HasQueryFilter(lambda);
+            }
+        }
+
         modelBuilder.Entity<User>()
             .HasOne(u => u.Team)
             .WithMany(t => t.Members)

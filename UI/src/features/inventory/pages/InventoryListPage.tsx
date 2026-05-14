@@ -124,6 +124,7 @@ export function InventoryListPage() {
   }, [fetchSessions]);
 
   const handleOpenCreate = () => {
+    setSelectedSession(null);
     setFormData({ clientName: "", teamId: "", startDate: "", endDate: "" });
     setIsCreateModalOpen(true);
   };

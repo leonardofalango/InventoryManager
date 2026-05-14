@@ -35,7 +35,7 @@ public class InventorySessionController : ControllerBase
 
         var totalSKUs = expectedStocks.Count;
 
-        if (totalSKUs == 0) totalSKUs = await _context.Products.CountAsync();
+        if (totalSKUs == 0) totalSKUs = await _context.Products.CountAsync(p => p.InventorySessionId == id && p.DeletedAt == null);
 
         var countedSKUs = session.Counts.Select(c => c.Ean).Distinct().Count();
         var totalItems = session.Counts.Sum(c => c.Quantity);
@@ -235,8 +235,15 @@ public class InventorySessionController : ControllerBase
         }
 
         var activeSession = await _context.InventorySessions
-            .Where(s => s.TeamId == user.TeamId &&
-                       (s.Status == InventoryStatus.Open || s.Status == InventoryStatus.InProgress))
+            .Where(
+                s => s.TeamId == user.TeamId &&
+                (
+                user.Role == "COUNTER"
+                    ? s.Status == InventoryStatus.InProgress
+                    : s.Status == InventoryStatus.Open ||
+                    s.Status == InventoryStatus.InProgress
+                )
+            )
             .OrderByDescending(s => s.StartDate)
             .FirstOrDefaultAsync();
 

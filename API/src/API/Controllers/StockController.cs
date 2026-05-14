@@ -67,7 +67,7 @@ public class StockController : ControllerBase
     public async Task<IActionResult> AddExpectedStock(Guid sessionId, [FromBody] ExpectedStockCreate request)
     {
         var product = await _context.Products
-            .Where(p => p.DeletedAt == null)
+            .Where(p => p.DeletedAt == null && p.Ean == request.Ean && p.InventorySessionId == sessionId)
             .FirstOrDefaultAsync(p => p.Ean == request.Ean);
 
         if (product == null) return NotFound(new { message = "Produto não encontrado." });
