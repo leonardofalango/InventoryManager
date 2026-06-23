@@ -51,31 +51,77 @@ public class ProductsController : ControllerBase
         });
     }
 
-    [HttpPost]
-    public async Task<ActionResult<Product>> CreateProduct(Product product)
+    [HttpPost("{inventorySessionId:guid}")]
+    public async Task<ActionResult<Product>> CreateProduct(
+        Guid inventorySessionId,
+        [FromBody] SaveProductRequest request)
     {
+        var sessionExists = await _context.InventorySessions.AnyAsync(s => s.Id == inventorySessionId);
+        if (!sessionExists)
+        {
+            return NotFound(new { message = "Sessão de inventário não encontrada." });
+        }
+
+        var ean = request.Ean.Trim();
+        var name = request.Name.Trim();
+
+        if (string.IsNullOrWhiteSpace(ean) || string.IsNullOrWhiteSpace(name))
+        {
+            return BadRequest(new { message = "EAN e nome são obrigatórios." });
+        }
+
+        var productAlreadyExists = await _context.Products
+            .AnyAsync(p => p.InventorySessionId == inventorySessionId && p.Ean == ean);
+
+        if (productAlreadyExists)
+        {
+            return Conflict(new { message = "Já existe um produto com este EAN nesta sessão." });
+        }
+
+        var product = new Product
+        {
+            Ean = ean,
+            Name = name,
+            InventorySessionId = inventorySessionId
+        };
+
         _context.Products.Add(product);
         await _context.SaveChangesAsync();
         return CreatedAtAction(nameof(GetProducts), new { inventorySessionId = product.InventorySessionId }, product);
     }
 
     [HttpPut("{id:guid}")]
-    public async Task<IActionResult> UpdateProduct(Guid id, Product product)
+    public async Task<IActionResult> UpdateProduct(Guid id, [FromBody] SaveProductRequest request)
     {
-        if (id != product.Id) return BadRequest();
-
-        _context.Entry(product).State = EntityState.Modified;
-
-        try
+        var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == id);
+        if (product == null)
         {
-            await _context.SaveChangesAsync();
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            if (!_context.Products.Any(e => e.Id == id)) return NotFound();
-            throw;
+            return NotFound(new { message = "Produto não encontrado." });
         }
 
+        var ean = request.Ean.Trim();
+        var name = request.Name.Trim();
+
+        if (string.IsNullOrWhiteSpace(ean) || string.IsNullOrWhiteSpace(name))
+        {
+            return BadRequest(new { message = "EAN e nome são obrigatórios." });
+        }
+
+        var productAlreadyExists = await _context.Products.AnyAsync(p =>
+            p.Id != id &&
+            p.InventorySessionId == product.InventorySessionId &&
+            p.Ean == ean);
+
+        if (productAlreadyExists)
+        {
+            return Conflict(new { message = "Já existe um produto com este EAN nesta sessão." });
+        }
+
+        product.Ean = ean;
+        product.Name = name;
+        product.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
         return NoContent();
     }
 
@@ -111,4 +157,10 @@ public class ProductsController : ControllerBase
 
         return NoContent();
     }
+}
+
+public class SaveProductRequest
+{
+    public string Ean { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
 }
