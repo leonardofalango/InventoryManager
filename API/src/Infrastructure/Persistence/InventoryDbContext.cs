@@ -55,6 +55,10 @@ public class InventoryDbContext : DbContext
         modelBuilder.Entity<InventoryCount>()
             .HasIndex(c => c.InventorySessionId);
 
+        modelBuilder.Entity<InventoryCount>()
+            .HasIndex(c => c.ClientCountId)
+            .IsUnique();
+
         modelBuilder.Entity<Product>()
             .HasIndex(p => new { p.Ean, p.InventorySessionId })
             .IsUnique();

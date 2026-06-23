@@ -15,6 +15,7 @@ public class InventoryCount : IAuditEntity
     public Guid UserId { get; set; }
     public DateTime CountedAt { get; set; } = DateTime.UtcNow;
     public int CountVersion { get; set; } = 1;
+    public Guid? ClientCountId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
     public DateTime? DeletedAt { get; set; }

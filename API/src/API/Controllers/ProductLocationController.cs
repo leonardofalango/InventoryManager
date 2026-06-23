@@ -69,7 +69,9 @@ public class ProductLocationController : ControllerBase
     public async Task<ActionResult<ProductLocation>> GetProductLocationByBarcode(Guid inventorySessionId, string barcode)
     {
         var location = await _context.ProductLocations.Where(pl => pl.DeletedAt == null).FirstOrDefaultAsync(pl => pl.InventorySessionId == inventorySessionId && pl.Barcode == barcode);
-        if (location == null) return NotFound();
+        if (location == null)
+            return NotFound(new { message = $"Localizacao {barcode} nao encontrada para este inventario." });
+
         return location;
     }
 

@@ -176,19 +176,40 @@ public class InventorySessionController : ControllerBase
     [Authorize(Roles = "ADMIN,COUNTER,MANAGER")]
     public async Task<IActionResult> RegisterCount(Guid id, [FromBody] RegisterCountRequest request)
     {
-        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out Guid userId))
+        if (!TryGetUserId(out Guid userId))
         {
-            return Unauthorized(new { message = "Usuário não identificado no token." });
+            return Unauthorized(new { message = "Usuario nao identificado no token." });
+        }
+
+        var validationMessage = ValidateCountRequest(request);
+        if (validationMessage != null)
+            return BadRequest(new { message = validationMessage });
+
+        if (request.ClientCountId.HasValue)
+        {
+            var existingCount = await _context.InventoryCounts
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.ClientCountId == request.ClientCountId.Value);
+
+            if (existingCount != null)
+            {
+                return Ok(new
+                {
+                    message = "Contagem ja registrada anteriormente.",
+                    duplicate = true,
+                    countId = existingCount.Id,
+                    ean = existingCount.Ean,
+                    countedAt = existingCount.CountedAt
+                });
+            }
         }
 
         var session = await _context.InventorySessions.FindAsync(id);
-
         if (session == null)
-            return NotFound(new { message = "Sessão de inventário não encontrada." });
+            return NotFound(new { message = "Sessao de inventario nao encontrada." });
 
         if (session.Status == InventoryStatus.Closed)
-            return BadRequest(new { message = "Esta sessão de inventário já está encerrada." });
+            return BadRequest(new { message = "Esta sessao de inventario ja esta encerrada." });
 
         if (session.Status == InventoryStatus.Open)
         {
@@ -202,8 +223,9 @@ public class InventorySessionController : ControllerBase
             Ean = request.Ean,
             ProductLocationId = request.ProductLocationId,
             Quantity = request.Quantity,
-            CountedAt = DateTime.UtcNow,
-            CountVersion = request.CountVersion
+            CountedAt = NormalizeCountedAt(request.CountedAt),
+            CountVersion = request.CountVersion,
+            ClientCountId = request.ClientCountId
         };
 
         _context.InventoryCounts.Add(inventoryCount);
@@ -216,6 +238,134 @@ public class InventorySessionController : ControllerBase
             ean = inventoryCount.Ean,
             countedAt = inventoryCount.CountedAt
         });
+    }
+
+    [HttpPost("{id}/counts/batch")]
+    [Authorize(Roles = "ADMIN,COUNTER,MANAGER")]
+    public async Task<IActionResult> RegisterCountsBatch(Guid id, [FromBody] RegisterCountsBatchRequest request)
+    {
+        if (!TryGetUserId(out Guid userId))
+        {
+            return Unauthorized(new { message = "Usuario nao identificado no token." });
+        }
+
+        if (request.Counts.Count == 0)
+            return BadRequest(new { message = "Nenhuma leitura foi enviada para sincronizacao." });
+
+        if (request.Counts.Count > 500)
+            return BadRequest(new { message = "Envie no maximo 500 leituras por lote." });
+
+        var validationErrors = request.Counts
+            .Select((count, index) => new { Index = index, Message = ValidateCountRequest(count) })
+            .Where(item => item.Message != null)
+            .ToList();
+
+        if (validationErrors.Count > 0)
+        {
+            return BadRequest(new
+            {
+                message = "Uma ou mais leituras do lote estao invalidas.",
+                errors = validationErrors.Select(item => $"Leitura {item.Index + 1}: {item.Message}")
+            });
+        }
+
+        var duplicatedClientIds = request.Counts
+            .Where(count => count.ClientCountId.HasValue)
+            .GroupBy(count => count.ClientCountId!.Value)
+            .Where(group => group.Count() > 1)
+            .Select(group => group.Key)
+            .ToList();
+
+        if (duplicatedClientIds.Count > 0)
+        {
+            return BadRequest(new { message = "O lote contem leituras repetidas pelo mesmo identificador local." });
+        }
+
+        var session = await _context.InventorySessions.FindAsync(id);
+        if (session == null)
+            return NotFound(new { message = "Sessao de inventario nao encontrada." });
+
+        if (session.Status == InventoryStatus.Closed)
+            return BadRequest(new { message = "Esta sessao de inventario ja esta encerrada." });
+
+        var clientIds = request.Counts
+            .Where(count => count.ClientCountId.HasValue)
+            .Select(count => count.ClientCountId!.Value)
+            .ToList();
+
+        var existingClientIds = clientIds.Count == 0
+            ? new HashSet<Guid>()
+            : await _context.InventoryCounts
+                .AsNoTracking()
+                .Where(count => count.ClientCountId.HasValue && clientIds.Contains(count.ClientCountId.Value))
+                .Select(count => count.ClientCountId!.Value)
+                .ToHashSetAsync();
+
+        var countsToCreate = request.Counts
+            .Where(count => !count.ClientCountId.HasValue || !existingClientIds.Contains(count.ClientCountId.Value))
+            .Select(count => new InventoryCount
+            {
+                InventorySessionId = id,
+                UserId = userId,
+                Ean = count.Ean,
+                ProductLocationId = count.ProductLocationId,
+                Quantity = count.Quantity,
+                CountedAt = NormalizeCountedAt(count.CountedAt),
+                CountVersion = count.CountVersion,
+                ClientCountId = count.ClientCountId
+            })
+            .ToList();
+
+        if (session.Status == InventoryStatus.Open && countsToCreate.Count > 0)
+        {
+            session.Status = InventoryStatus.InProgress;
+        }
+
+        if (countsToCreate.Count > 0)
+        {
+            _context.InventoryCounts.AddRange(countsToCreate);
+            await _context.SaveChangesAsync();
+        }
+
+        return Ok(new
+        {
+            message = "Lote de contagens processado com sucesso.",
+            received = request.Counts.Count,
+            registered = countsToCreate.Count,
+            duplicates = request.Counts.Count - countsToCreate.Count
+        });
+    }
+
+    private bool TryGetUserId(out Guid userId)
+    {
+        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        return Guid.TryParse(userIdString, out userId);
+    }
+
+    private static string? ValidateCountRequest(RegisterCountRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Ean))
+            return "Informe o EAN lido.";
+
+        if (request.ProductLocationId == Guid.Empty)
+            return "Informe uma localizacao valida antes de registrar a leitura.";
+
+        if (request.Quantity <= 0)
+            return "A quantidade deve ser maior que zero.";
+
+        if (request.CountVersion <= 0)
+            return "A versao da contagem deve ser maior que zero.";
+
+        return null;
+    }
+
+    private static DateTime NormalizeCountedAt(DateTime? countedAt)
+    {
+        var value = countedAt ?? DateTime.UtcNow;
+
+        return value.Kind == DateTimeKind.Unspecified
+            ? DateTime.SpecifyKind(value, DateTimeKind.Utc)
+            : value.ToUniversalTime();
     }
 
     [HttpGet("active")]
@@ -425,6 +575,13 @@ public class RegisterCountRequest
     public Guid ProductLocationId { get; set; }
     public int Quantity { get; set; } = 1;
     public int CountVersion { get; set; } = 1;
+    public DateTime? CountedAt { get; set; }
+    public Guid? ClientCountId { get; set; }
+}
+
+public class RegisterCountsBatchRequest
+{
+    public List<RegisterCountRequest> Counts { get; set; } = new();
 }
 
 public class UpdateStatusRequest
