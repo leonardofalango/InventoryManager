@@ -51,3 +51,5 @@ jobs:
               -e "Jwt__Audience=${{ secrets.JWT_AUDIENCE }}" \
               -e "Jwt__Issuer=${{ secrets.JWT_ISSUER }}" \
               inventory-api
+
+            docker image prune -f
