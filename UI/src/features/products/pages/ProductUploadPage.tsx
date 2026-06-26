@@ -23,6 +23,7 @@ import { PreviewTable } from "../components/PreviewTable";
 import { ConfirmModal } from "../../../components/common/ConfirmModal"; // <-- Importado
 import type { ProductCsvRow } from "../types/product-types";
 import type { Product } from "../../../types";
+import { getEanValidationMessage, isValidEan } from "../../../lib/ean";
 
 export function ProductUploadPage() {
   const showFeedback = useFeedbackStore((state) => state.showFeedback);
@@ -88,7 +89,6 @@ export function ProductUploadPage() {
         setViewMode("upload");
       }
     } catch (error) {
-      showFeedback("Erro ao carregar produtos", "error");
     } finally {
       setLoadingManage(false);
     }
@@ -100,6 +100,12 @@ export function ProductUploadPage() {
   }, [fetchProducts]);
 
   const handleSaveItem = async () => {
+    const validationMessage = getEanValidationMessage(formData.ean);
+    if (validationMessage) {
+      showFeedback(validationMessage, "error");
+      return;
+    }
+
     try {
       if (editingItem) {
         await api.put(`/Products/${editingItem.id}`, formData);
@@ -110,12 +116,7 @@ export function ProductUploadPage() {
       }
       setIsModalOpen(false);
       fetchProducts();
-    } catch (error: any) {
-      showFeedback(
-        error.response?.data?.message || "Erro ao salvar produto.",
-        "error",
-      );
-    }
+    } catch (error: any) {}
   };
 
   const executeDelete = async (id: string) => {
@@ -123,9 +124,7 @@ export function ProductUploadPage() {
       await api.delete(`/Products/${id}`);
       showFeedback("Produto removido com sucesso", "success");
       fetchProducts();
-    } catch (error) {
-      showFeedback("Erro ao remover produto", "error");
-    }
+    } catch (error) {}
   };
 
   const confirmDelete = (product: Product) => {
@@ -146,9 +145,7 @@ export function ProductUploadPage() {
       setSearch("");
       setPage(1);
       fetchProducts();
-    } catch (error) {
-      showFeedback("Erro ao remover os produtos", "error");
-    }
+    } catch (error) {}
   };
 
   const confirmDeleteAll = () => {
@@ -209,7 +206,6 @@ export function ProductUploadPage() {
       }, 1500);
     } catch (error) {
       setUploadStatus("error");
-      showFeedback("Erro na importação", "error");
     } finally {
       setIsUploading(false);
     }

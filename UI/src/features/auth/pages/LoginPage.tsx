@@ -35,8 +35,6 @@ export function LoginPage() {
 
       showFeedback("Login realizado com sucesso!", "success");
       navigate("/");
-    } catch (err) {
-      showFeedback("Erro ao entrar: Verifique suas credenciais.", "error");
     } finally {
       setLoading(false);
     }
@@ -66,8 +64,6 @@ export function LoginPage() {
       setPassword("");
       setNewPassword("");
       setRepeatNewPassword("");
-    } catch (err) {
-      showFeedback("Erro ao trocar senha.", "error");
     } finally {
       setLoading(false);
     }

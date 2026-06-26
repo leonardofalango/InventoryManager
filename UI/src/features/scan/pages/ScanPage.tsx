@@ -318,13 +318,6 @@ export function ScanPage() {
             }
 
             vibrate([200, 100, 200]);
-            showFeedback(
-              getApiErrorMessage(
-                error,
-                `Localizacao ${cleanCode} nao encontrada para este inventario.`,
-              ),
-              "error",
-            );
           }
           return;
         }
@@ -408,7 +401,6 @@ export function ScanPage() {
             message: errorMessage,
           });
           vibrate([300, 150, 300]);
-          showFeedback(errorMessage, "error");
           fetchActiveSession();
         }
       } finally {

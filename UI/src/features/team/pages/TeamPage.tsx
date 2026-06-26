@@ -102,7 +102,6 @@ export function TeamPage() {
       fetchData();
     } catch (error) {
       console.error(error);
-      showFeedback("Erro ao salvar membro.", "error");
     }
   };
 
@@ -113,9 +112,7 @@ export function TeamPage() {
       setShowTeamModal(false);
       setNewTeamName("");
       fetchData();
-    } catch (error) {
-      showFeedback("Erro ao criar time.", "error");
-    }
+    } catch (error) {}
   };
 
   const handleDeleteTeam = async (id: string, e: React.MouseEvent) => {
@@ -126,7 +123,6 @@ export function TeamPage() {
       fetchData();
     } catch (error: any) {
       const msg = error.response?.data || "Erro ao excluir time.";
-      showFeedback(msg, "error");
     }
   };
 

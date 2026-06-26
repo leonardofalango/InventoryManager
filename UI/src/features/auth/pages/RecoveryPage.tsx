@@ -25,7 +25,6 @@ export function RecoveryPage() {
       }
       navigate("/login");
     } catch (err) {
-      showFeedback("Erro ao enviar solicitação de recuperação.", "error");
     } finally {
       setLoading(false);
     }
