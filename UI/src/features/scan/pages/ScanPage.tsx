@@ -107,7 +107,10 @@ export function ScanPage() {
 
       if (!connected) {
         if (!silent) {
-          showFeedback("Sem internet. As leituras continuam salvas no coletor.", "info");
+          showFeedback(
+            "Sem internet. As leituras continuam salvas no coletor.",
+            "info",
+          );
         }
         return;
       }
@@ -323,7 +326,10 @@ export function ScanPage() {
         }
 
         if (!locationId) {
-          showFeedback("Bipe a localizacao novamente antes de contar itens.", "error");
+          showFeedback(
+            "Bipe a localizacao novamente antes de contar itens.",
+            "error",
+          );
           return;
         }
 
@@ -643,7 +649,7 @@ export function ScanPage() {
                     : "bg-gray-800/60 border-gray-700"
                   : item.status === "queued"
                     ? "bg-yellow-900/20 border-yellow-500/50"
-                  : "bg-red-900/30 border-red-500/50"
+                    : "bg-red-900/30 border-red-500/50"
               }`}
             >
               <div className="flex items-center gap-4 md:gap-3">
@@ -653,10 +659,7 @@ export function ScanPage() {
                     className={`md:w-5 md:h-5 ${index === 0 ? "text-accent" : "text-green-500"}`}
                   />
                 ) : item.status === "queued" ? (
-                  <Clock3
-                    size={24}
-                    className="text-yellow-400 md:w-5 md:h-5"
-                  />
+                  <Clock3 size={24} className="text-yellow-400 md:w-5 md:h-5" />
                 ) : (
                   <AlertCircle
                     size={24}
