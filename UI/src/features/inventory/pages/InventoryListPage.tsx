@@ -100,7 +100,6 @@ export function InventoryListPage() {
       setTotalPages(response.data.totalPages || 1);
       setTotalItems(response.data.totalItems || 0);
     } catch (error: any) {
-      showFeedback("Erro ao carregar os inventários.", "error");
     } finally {
       setIsLoading(false);
     }
@@ -158,7 +157,6 @@ export function InventoryListPage() {
       setIsCreateModalOpen(false);
       fetchSessions();
     } catch (error: any) {
-      showFeedback("Erro ao criar inventário.", "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -183,7 +181,6 @@ export function InventoryListPage() {
       setIsEditModalOpen(false);
       fetchSessions();
     } catch (error: any) {
-      showFeedback("Erro ao atualizar inventário.", "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -195,7 +192,6 @@ export function InventoryListPage() {
       showFeedback("Inventário excluído com sucesso.", "success");
       fetchSessions();
     } catch (error: any) {
-      showFeedback("Erro ao excluir o inventário.", "error");
     }
   };
 
@@ -221,7 +217,6 @@ export function InventoryListPage() {
       showFeedback("Status do inventário atualizado.", "success");
       fetchSessions();
     } catch (error: any) {
-      showFeedback("Erro ao atualizar o status.", "error");
     }
   };
 
