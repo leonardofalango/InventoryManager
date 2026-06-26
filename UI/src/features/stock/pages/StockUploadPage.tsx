@@ -21,6 +21,7 @@ import { api } from "../../../lib/axios";
 import { useFeedbackStore } from "../../../store/feedbackStore";
 import { SessionAutocomplete } from "../../../components/common/SessionAutoComplete";
 import { StockPreviewTable } from "../components/StockPreviewTable"; // <-- Importação do novo componente
+import { getEanValidationMessage } from "../../../lib/ean";
 
 export function StockUploadPage() {
   const showFeedback = useFeedbackStore((state) => state.showFeedback);
@@ -68,7 +69,6 @@ export function StockUploadPage() {
           setViewMode("manage");
         })
         .catch(() => {
-          showFeedback("Selecione um inventário para gerir o stock.", "info");
           setViewMode("upload");
         })
         .finally(() => setIsLoadingSession(false));
@@ -94,7 +94,6 @@ export function StockUploadPage() {
       }
     } catch (error) {
       console.error(error);
-      showFeedback("Erro ao buscar stock.", "error");
     }
   }, [sessionId, page, search, showFeedback]);
 
@@ -139,7 +138,6 @@ export function StockUploadPage() {
             setUploadStatus("idle");
           } catch (error) {
             console.error("Erro ao gerar preview", error);
-            showFeedback("Erro ao validar produtos no sistema.", "error");
             setUploadStatus("error");
           } finally {
             setIsPreviewLoading(false);
@@ -180,13 +178,18 @@ export function StockUploadPage() {
     } catch (error) {
       console.error(error);
       setUploadStatus("error");
-      showFeedback("Erro ao importar stock.", "error");
     } finally {
       setIsUploading(false);
     }
   };
 
   const handleSaveItem = async () => {
+    const validationMessage = getEanValidationMessage(formData.newEan);
+    if (validationMessage) {
+      showFeedback(validationMessage, "error");
+      return;
+    }
+
     try {
       if (editingItem) {
         const payloadUpdate = {
@@ -206,12 +209,7 @@ export function StockUploadPage() {
 
       setIsModalOpen(false);
       fetchStock();
-    } catch (error: any) {
-      showFeedback(
-        error.response?.data?.message || "Erro ao salvar item.",
-        "error",
-      );
-    }
+    } catch (error: any) {}
   };
 
   const handleDeleteItem = async (id: string) => {
@@ -222,9 +220,7 @@ export function StockUploadPage() {
         await api.delete(`/stock/${id}`);
         showFeedback("Item removido.", "success");
         fetchStock();
-      } catch (error) {
-        showFeedback("Erro ao remover item.", "error");
-      }
+      } catch (error) {}
     }
   };
 
@@ -269,7 +265,7 @@ export function StockUploadPage() {
       <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-textPrimary">
-            Gerenciamento de Stock
+            Gerenciamento de Estoque
           </h1>
           <p className="text-textSecondary">
             Defina as quantidades esperadas para o inventário
