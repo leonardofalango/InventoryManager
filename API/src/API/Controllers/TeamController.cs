@@ -22,7 +22,9 @@ public class TeamController : ControllerBase
     public async Task<ActionResult<IEnumerable<Team>>> GetTeams()
     {
 
-        var teams = _context.Teams.Include(t => t.Members)
+        var teams = _context.Teams
+            .AsNoTracking()
+            .Include(t => t.Members)
             .Where(t => t.DeletedAt == null)
             .Select(t => new
             {

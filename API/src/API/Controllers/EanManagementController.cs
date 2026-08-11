@@ -57,54 +57,62 @@ public class EanManagementController : ControllerBase
     [HttpDelete("session/{inventorySessionId}/location/{locationId}/ean/{ean}")]
     public async Task<IActionResult> DeleteSingleEan(Guid inventorySessionId, Guid locationId, string ean)
     {
-        var counts = await _context.InventoryCounts
+        var summary = await _context.InventoryCounts
+            .AsNoTracking()
             .Where(c => c.InventorySessionId == inventorySessionId && c.ProductLocationId == locationId && c.Ean == ean && c.DeletedAt == null)
-            .ToListAsync();
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                Count = g.Count(),
+                Quantity = g.Sum(c => c.Quantity)
+            })
+            .FirstOrDefaultAsync();
 
-        if (counts.Count == 0)
+        if (summary == null)
         {
             return NotFound(new { message = "Nenhuma leitura encontrada para este EAN nesta localidade." });
         }
 
         var now = DateTime.UtcNow;
-        foreach (var count in counts)
-        {
-            count.DeletedAt = now;
-        }
-
-        await _context.SaveChangesAsync();
+        await _context.InventoryCounts
+            .Where(c => c.InventorySessionId == inventorySessionId && c.ProductLocationId == locationId && c.Ean == ean && c.DeletedAt == null)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(c => c.DeletedAt, now));
 
         return Ok(new DeleteResultDto
         {
-            DeletedCount = counts.Count,
-            DeletedQuantity = counts.Sum(c => c.Quantity)
+            DeletedCount = summary.Count,
+            DeletedQuantity = summary.Quantity
         });
     }
 
     [HttpDelete("session/{inventorySessionId}/location/{locationId}")]
     public async Task<IActionResult> DeleteAllEansInLocation(Guid inventorySessionId, Guid locationId)
     {
-        var counts = await _context.InventoryCounts
+        var summary = await _context.InventoryCounts
+            .AsNoTracking()
             .Where(c => c.InventorySessionId == inventorySessionId && c.ProductLocationId == locationId && c.DeletedAt == null)
-            .ToListAsync();
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                Count = g.Count(),
+                Quantity = g.Sum(c => c.Quantity)
+            })
+            .FirstOrDefaultAsync();
 
-        if (counts.Count == 0)
+        if (summary == null)
         {
             return NotFound(new { message = "Nenhuma leitura encontrada para esta localidade." });
         }
 
         var now = DateTime.UtcNow;
-        foreach (var count in counts)
-        {
-            count.DeletedAt = now;
-        }
-
-        await _context.SaveChangesAsync();
+        await _context.InventoryCounts
+            .Where(c => c.InventorySessionId == inventorySessionId && c.ProductLocationId == locationId && c.DeletedAt == null)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(c => c.DeletedAt, now));
 
         return Ok(new DeleteResultDto
         {
-            DeletedCount = counts.Count,
-            DeletedQuantity = counts.Sum(c => c.Quantity)
+            DeletedCount = summary.Count,
+            DeletedQuantity = summary.Quantity
         });
     }
 

@@ -24,12 +24,13 @@ public class ProductsController : ControllerBase
     {
         var query = _context.Products
             .Where(p => p.InventorySessionId == inventorySessionId && p.DeletedAt == null)
+            .AsNoTracking()
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var searchLower = search.ToLower();
-            query = query.Where(p => p.Name.ToLower().Contains(searchLower) || p.Ean.Contains(searchLower));
+            var searchTerm = $"%{search.Trim()}%";
+            query = query.Where(p => EF.Functions.ILike(p.Name, searchTerm) || p.Ean.Contains(search.Trim()));
         }
 
         var totalItems = await query.CountAsync();
@@ -39,6 +40,15 @@ public class ProductsController : ControllerBase
             .OrderBy(p => p.Name)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
+            .Select(p => new
+            {
+                p.Id,
+                p.Ean,
+                p.Name,
+                p.Category,
+                p.Price,
+                p.InventorySessionId
+            })
             .ToListAsync();
 
         return Ok(new
@@ -51,20 +61,37 @@ public class ProductsController : ControllerBase
         });
     }
 
-    [HttpPost]
-    public async Task<ActionResult<Product>> CreateProduct(Product product)
+    [HttpPost("{inventorySessionId:guid}")]
+    public async Task<ActionResult<Product>> CreateProduct(Guid inventorySessionId, [FromBody] ProductUpsertRequest request)
     {
+        var product = new Product
+        {
+            InventorySessionId = inventorySessionId,
+            Ean = request.Ean.Trim(),
+            Name = request.Name.Trim(),
+            Category = request.Category?.Trim() ?? string.Empty,
+            Price = request.Price ?? 0
+        };
+
         _context.Products.Add(product);
         await _context.SaveChangesAsync();
         return CreatedAtAction(nameof(GetProducts), new { inventorySessionId = product.InventorySessionId }, product);
     }
 
     [HttpPut("{id:guid}")]
-    public async Task<IActionResult> UpdateProduct(Guid id, Product product)
+    public async Task<IActionResult> UpdateProduct(Guid id, [FromBody] ProductUpsertRequest request)
     {
-        if (id != product.Id) return BadRequest();
+        var product = await _context.Products
+            .Where(p => p.DeletedAt == null)
+            .FirstOrDefaultAsync(p => p.Id == id);
 
-        _context.Entry(product).State = EntityState.Modified;
+        if (product == null) return NotFound();
+
+        product.Ean = request.Ean.Trim();
+        product.Name = request.Name.Trim();
+        product.Category = request.Category?.Trim() ?? product.Category;
+        product.Price = request.Price ?? product.Price;
+        product.UpdatedAt = DateTime.UtcNow;
 
         try
         {
@@ -94,21 +121,21 @@ public class ProductsController : ControllerBase
     [HttpDelete("session/{inventorySessionId:guid}")]
     public async Task<IActionResult> DeleteAllProductsBySession(Guid inventorySessionId)
     {
-        var products = await _context.Products
-            .Where(p => p.InventorySessionId == inventorySessionId && p.DeletedAt == null)
-            .ToListAsync();
-
-        if (!products.Any()) return NoContent();
-
         var now = DateTime.UtcNow;
+        var updated = await _context.Products
+            .Where(p => p.InventorySessionId == inventorySessionId && p.DeletedAt == null)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(p => p.DeletedAt, now));
 
-        foreach (var product in products)
-        {
-            product.DeletedAt = now;
-        }
-
-        await _context.SaveChangesAsync();
+        if (updated == 0) return NoContent();
 
         return NoContent();
+    }
+
+    public class ProductUpsertRequest
+    {
+        public string Ean { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string? Category { get; set; }
+        public decimal? Price { get; set; }
     }
 }
