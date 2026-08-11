@@ -10,8 +10,24 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      FRONTEND_ORIGIN: http://absoluta-log-s3-sandbox.s3-website-sa-east-1.amazonaws.com
+      AWS_SES_REGION: sa-east-1
+      AWS_SES_SENDER_EMAIL: support@absolutalog.com.br
     steps:
       - uses: actions/checkout@v3
+
+      - name: Validate required backend secrets
+        env:
+          DB_CONNECTION_STRING: ${{ secrets.DB_CONNECTION_STRING }}
+          JWT_KEY: ${{ secrets.JWT_KEY }}
+          JWT_AUDIENCE: ${{ secrets.JWT_AUDIENCE }}
+          JWT_ISSUER: ${{ secrets.JWT_ISSUER }}
+        run: |
+          test -n "$DB_CONNECTION_STRING" || (echo "Missing DB_CONNECTION_STRING secret" && exit 1)
+          test -n "$JWT_KEY" || (echo "Missing JWT_KEY secret" && exit 1)
+          test -n "$JWT_AUDIENCE" || (echo "Missing JWT_AUDIENCE secret" && exit 1)
+          test -n "$JWT_ISSUER" || (echo "Missing JWT_ISSUER secret" && exit 1)
 
       - name: Limpar diretório antigo na EC2
         uses: appleboy/ssh-action@master
@@ -33,10 +49,19 @@ jobs:
 
       - name: Build and Run Docker
         uses: appleboy/ssh-action@master
+        env:
+          DB_CONNECTION_STRING: ${{ secrets.DB_CONNECTION_STRING }}
+          JWT_KEY: ${{ secrets.JWT_KEY }}
+          JWT_AUDIENCE: ${{ secrets.JWT_AUDIENCE }}
+          JWT_ISSUER: ${{ secrets.JWT_ISSUER }}
+          FRONTEND_ORIGIN: ${{ env.FRONTEND_ORIGIN }}
+          AWS_SES_REGION: ${{ env.AWS_SES_REGION }}
+          AWS_SES_SENDER_EMAIL: ${{ env.AWS_SES_SENDER_EMAIL }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
+          envs: DB_CONNECTION_STRING,JWT_KEY,JWT_AUDIENCE,JWT_ISSUER,FRONTEND_ORIGIN,AWS_SES_REGION,AWS_SES_SENDER_EMAIL
           script: |
             cd /home/ubuntu/inventorymanager/API
 
@@ -45,16 +70,21 @@ jobs:
             docker run --rm --name api-migrations \
               --entrypoint /app/efbundle \
               inventory-api \
-              --connection "${{ secrets.DB_CONNECTION_STRING }}"
+              --connection "$DB_CONNECTION_STRING"
 
             docker stop api-container || true
             docker rm api-container || true
 
             docker run -d --name api-container -p 80:8080 \
-              -e "ConnectionStrings__DefaultConnection=${{ secrets.DB_CONNECTION_STRING }}" \
-              -e "Jwt__Key=${{ secrets.JWT_KEY }}" \
-              -e "Jwt__Audience=${{ secrets.JWT_AUDIENCE }}" \
-              -e "Jwt__Issuer=${{ secrets.JWT_ISSUER }}" \
+              -e "ASPNETCORE_ENVIRONMENT=Production" \
+              -e "ConnectionStrings__DefaultConnection=$DB_CONNECTION_STRING" \
+              -e "Cors__AllowedOrigins__0=$FRONTEND_ORIGIN" \
+              -e "Database__RunMigrationsOnStartup=false" \
+              -e "Jwt__Key=$JWT_KEY" \
+              -e "Jwt__Audience=$JWT_AUDIENCE" \
+              -e "Jwt__Issuer=$JWT_ISSUER" \
+              -e "AWSSES__Region=$AWS_SES_REGION" \
+              -e "AWSSES__SenderEmail=$AWS_SES_SENDER_EMAIL" \
               inventory-api
 
             docker image prune -f
