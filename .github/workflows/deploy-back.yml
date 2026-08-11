@@ -11,7 +11,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
-      FRONTEND_ORIGIN: http://absoluta-log-s3-sandbox.s3-website-sa-east-1.amazonaws.com
+      FRONTEND_ORIGIN: http://absoluta-log-s3-sandbox.s3.sa-east-1.amazonaws.com
       AWS_SES_REGION: sa-east-1
       AWS_SES_SENDER_EMAIL: support@absolutalog.com.br
       BYPASS_EAN_VALIDATION: "true"
