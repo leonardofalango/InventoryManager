@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using System.Security.Claims;
 using System.Text.Json;
 using System.Linq.Expressions;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 namespace InventoryManager.Infrastructure.Persistence;
 
@@ -55,13 +56,49 @@ public class InventoryDbContext : DbContext
         modelBuilder.Entity<InventoryCount>()
             .HasIndex(c => c.InventorySessionId);
 
+        modelBuilder.Entity<InventoryCount>()
+            .HasIndex(c => c.ClientCountId)
+            .IsUnique()
+            .HasFilter("\"ClientCountId\" IS NOT NULL");
+
+        modelBuilder.Entity<InventoryCount>()
+            .HasIndex(c => new { c.InventorySessionId, c.Ean });
+
+        modelBuilder.Entity<InventoryCount>()
+            .HasIndex(c => new { c.InventorySessionId, c.CountedAt });
+
+        modelBuilder.Entity<InventoryCount>()
+            .HasIndex(c => new { c.InventorySessionId, c.ProductLocationId });
+
+        modelBuilder.Entity<InventoryCount>()
+            .HasIndex(c => new { c.InventorySessionId, c.ProductLocationId, c.Ean });
+
         modelBuilder.Entity<Product>()
             .HasIndex(p => new { p.Ean, p.InventorySessionId })
-            .IsUnique();
+            .IsUnique()
+            .HasFilter("\"DeletedAt\" IS NULL");
 
         modelBuilder.Entity<ProductLocation>()
             .HasIndex(pl => new { pl.InventorySessionId, pl.Barcode })
-            .IsUnique();
+            .IsUnique()
+            .HasFilter("\"DeletedAt\" IS NULL");
+
+        modelBuilder.Entity<ExpectedStock>()
+            .HasIndex(es => new { es.InventorySessionId, es.ProductId });
+
+        modelBuilder.Entity<InventorySession>()
+            .HasIndex(s => new { s.TeamId, s.Status, s.StartDate });
+
+        modelBuilder.Entity<InventorySession>()
+            .HasIndex(s => s.StartDate);
+
+        modelBuilder.Entity<AuditLog>()
+            .HasIndex(l => l.Datetime);
+
+        modelBuilder.Entity<User>()
+            .HasIndex(u => u.Email)
+            .IsUnique()
+            .HasFilter("\"DeletedAt\" IS NULL");
 
         modelBuilder.Entity<ExpectedStock>()
             .HasOne(es => es.Product)
@@ -71,7 +108,7 @@ public class InventoryDbContext : DbContext
 
         modelBuilder.Entity<ExpectedStock>()
             .HasOne(es => es.InventorySession)
-            .WithMany()
+            .WithMany(s => s.ExpectedStocks)
             .HasForeignKey(es => es.InventorySessionId)
             .OnDelete(DeleteBehavior.Cascade);
 
@@ -93,7 +130,7 @@ public class InventoryDbContext : DbContext
         var auditEntries = OnBeforeSaveChanges();
         var result = await base.SaveChangesAsync(cancellationToken);
 
-        await OnAfterSaveChanges(auditEntries);
+        await OnAfterSaveChanges(auditEntries, cancellationToken);
         return result;
     }
     private List<AuditEntry> OnBeforeSaveChanges()
@@ -106,6 +143,9 @@ public class InventoryDbContext : DbContext
         foreach (var entry in ChangeTracker.Entries())
         {
             if (entry.Entity is AuditLog || entry.State == EntityState.Detached || entry.State == EntityState.Unchanged)
+                continue;
+
+            if (ShouldSkipAudit(entry))
                 continue;
 
             var auditEntry = new AuditEntry(entry)
@@ -155,9 +195,19 @@ public class InventoryDbContext : DbContext
             }
         }
 
-        return auditEntries.Where(_ => !_.HasTemporaryProperties).ToList();
+        return auditEntries
+            .Where(auditEntry => !auditEntry.HasTemporaryProperties && !string.IsNullOrWhiteSpace(auditEntry.AuditType))
+            .ToList();
     }
-    private Task OnAfterSaveChanges(List<AuditEntry> auditEntries)
+    private static bool ShouldSkipAudit(EntityEntry entry)
+    {
+        if (entry.State != EntityState.Added)
+            return false;
+
+        return entry.Entity is InventoryCount or Product or ExpectedStock;
+    }
+
+    private Task OnAfterSaveChanges(List<AuditEntry> auditEntries, CancellationToken cancellationToken)
     {
         if (auditEntries == null || auditEntries.Count == 0)
             return Task.CompletedTask;
@@ -167,7 +217,7 @@ public class InventoryDbContext : DbContext
             AuditLogs.Add(auditEntry.ToAudit());
         }
 
-        return base.SaveChangesAsync();
+        return base.SaveChangesAsync(cancellationToken);
     }
 
     public class AuditEntry
@@ -177,13 +227,13 @@ public class InventoryDbContext : DbContext
             Entry = entry;
         }
         public Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry Entry { get; }
-        public string UserId { get; set; }
-        public string TableName { get; set; }
+        public string UserId { get; set; } = string.Empty;
+        public string TableName { get; set; } = string.Empty;
         public Dictionary<string, object?> KeyValues { get; } = new();
         public Dictionary<string, object?> OldValues { get; } = new();
         public Dictionary<string, object?> NewValues { get; } = new();
         public List<Microsoft.EntityFrameworkCore.ChangeTracking.PropertyEntry> TemporaryProperties { get; } = new();
-        public string AuditType { get; set; }
+        public string AuditType { get; set; } = string.Empty;
         public List<string> ChangedColumns { get; } = new();
         public bool HasTemporaryProperties => TemporaryProperties.Any();
 

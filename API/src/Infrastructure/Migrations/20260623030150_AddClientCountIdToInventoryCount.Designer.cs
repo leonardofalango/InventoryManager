@@ -3,6 +3,7 @@ using System;
 using InventoryManager.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace InventoryManager.Infrastructure.Migrations
 {
     [DbContext(typeof(InventoryDbContext))]
-    partial class InventoryDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260623030150_AddClientCountIdToInventoryCount")]
+    partial class AddClientCountIdToInventoryCount
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -60,8 +63,6 @@ namespace InventoryManager.Infrastructure.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("Datetime");
 
                     b.ToTable("AuditLogs");
                 });
@@ -116,6 +117,9 @@ namespace InventoryManager.Infrastructure.Migrations
                     b.Property<Guid>("InventorySessionId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("InventorySessionId1")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid>("ProductId")
                         .HasColumnType("uuid");
 
@@ -124,9 +128,11 @@ namespace InventoryManager.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ProductId");
+                    b.HasIndex("InventorySessionId");
 
-                    b.HasIndex("InventorySessionId", "ProductId");
+                    b.HasIndex("InventorySessionId1");
+
+                    b.HasIndex("ProductId");
 
                     b.ToTable("ExpectedStocks");
                 });
@@ -174,20 +180,11 @@ namespace InventoryManager.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ClientCountId")
-                        .IsUnique()
-                        .HasFilter("\"ClientCountId\" IS NOT NULL");
+                        .IsUnique();
 
                     b.HasIndex("InventorySessionId");
 
                     b.HasIndex("ProductLocationId");
-
-                    b.HasIndex("InventorySessionId", "CountedAt");
-
-                    b.HasIndex("InventorySessionId", "Ean");
-
-                    b.HasIndex("InventorySessionId", "ProductLocationId");
-
-                    b.HasIndex("InventorySessionId", "ProductLocationId", "Ean");
 
                     b.ToTable("InventoryCounts");
                 });
@@ -230,9 +227,7 @@ namespace InventoryManager.Infrastructure.Migrations
 
                     b.HasIndex("CustomerId");
 
-                    b.HasIndex("StartDate");
-
-                    b.HasIndex("TeamId", "Status", "StartDate");
+                    b.HasIndex("TeamId");
 
                     b.ToTable("InventorySessions");
                 });
@@ -275,8 +270,7 @@ namespace InventoryManager.Infrastructure.Migrations
                     b.HasIndex("InventorySessionId");
 
                     b.HasIndex("Ean", "InventorySessionId")
-                        .IsUnique()
-                        .HasFilter("\"DeletedAt\" IS NULL");
+                        .IsUnique();
 
                     b.ToTable("Products");
                 });
@@ -314,8 +308,7 @@ namespace InventoryManager.Infrastructure.Migrations
                     b.HasIndex("CustomerId");
 
                     b.HasIndex("InventorySessionId", "Barcode")
-                        .IsUnique()
-                        .HasFilter("\"DeletedAt\" IS NULL");
+                        .IsUnique();
 
                     b.ToTable("ProductLocations");
                 });
@@ -389,10 +382,6 @@ namespace InventoryManager.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Email")
-                        .IsUnique()
-                        .HasFilter("\"DeletedAt\" IS NULL");
-
                     b.HasIndex("TeamId");
 
                     b.ToTable("Users");
@@ -401,10 +390,14 @@ namespace InventoryManager.Infrastructure.Migrations
             modelBuilder.Entity("InventoryManager.Domain.Entities.ExpectedStock", b =>
                 {
                     b.HasOne("InventoryManager.Domain.Entities.InventorySession", "InventorySession")
-                        .WithMany("ExpectedStocks")
+                        .WithMany()
                         .HasForeignKey("InventorySessionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("InventoryManager.Domain.Entities.InventorySession", null)
+                        .WithMany("ExpectedStocks")
+                        .HasForeignKey("InventorySessionId1");
 
                     b.HasOne("InventoryManager.Domain.Entities.Product", "Product")
                         .WithMany("ExpectedStocks")

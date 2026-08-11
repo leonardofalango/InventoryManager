@@ -35,8 +35,6 @@ export function LoginPage() {
 
       showFeedback("Login realizado com sucesso!", "success");
       navigate("/");
-    } catch (err) {
-      showFeedback("Erro ao entrar: Verifique suas credenciais.", "error");
     } finally {
       setLoading(false);
     }
@@ -44,13 +42,13 @@ export function LoginPage() {
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
 
     if (newPassword !== repeatNewPassword) {
       showFeedback("As senhas não são iguais", "error");
       return;
     }
 
+    setLoading(true);
     try {
       const response = await api.post("/auth/change-password", {
         email,
@@ -66,8 +64,6 @@ export function LoginPage() {
       setPassword("");
       setNewPassword("");
       setRepeatNewPassword("");
-    } catch (err) {
-      showFeedback("Erro ao trocar senha.", "error");
     } finally {
       setLoading(false);
     }

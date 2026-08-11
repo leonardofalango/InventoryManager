@@ -111,7 +111,8 @@ export function DashboardPage() {
       return;
     }
 
-    const fetchDashboardData = async () => {
+    const fetchDashboardData = async (force = false) => {
+      if (!force && document.visibilityState === "hidden") return;
       if (isFetching.current) return;
       isFetching.current = true;
 
@@ -136,10 +137,9 @@ export function DashboardPage() {
       }
     };
 
-    fetchDashboardData();
+    fetchDashboardData(true);
 
-    // Atualiza a cada 20 segundos
-    const interval = setInterval(fetchDashboardData, 20000);
+    const interval = setInterval(() => fetchDashboardData(), 60000);
     return () => clearInterval(interval);
   }, [selectedSession]);
 

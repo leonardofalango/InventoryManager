@@ -9,6 +9,7 @@ import {
   ScanLine,
   QrCode,
   Layout,
+  ScanSearch,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { useAuthStore } from "../../store/authStore";
@@ -52,6 +53,12 @@ const MENU_ITEMS: { path: string; label: string; icon: any; roles: Role[] }[] =
       path: "/label",
       label: "Etiquetas",
       icon: QrCode,
+      roles: ["ADMIN", "MANAGER"],
+    },
+    {
+      path: "/ean-management",
+      label: "EANs",
+      icon: ScanSearch,
       roles: ["ADMIN", "MANAGER"],
     },
     {

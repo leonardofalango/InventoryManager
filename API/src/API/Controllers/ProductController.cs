@@ -24,12 +24,13 @@ public class ProductsController : ControllerBase
     {
         var query = _context.Products
             .Where(p => p.InventorySessionId == inventorySessionId && p.DeletedAt == null)
+            .AsNoTracking()
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var searchLower = search.ToLower();
-            query = query.Where(p => p.Name.ToLower().Contains(searchLower) || p.Ean.Contains(searchLower));
+            var searchTerm = $"%{search.Trim()}%";
+            query = query.Where(p => EF.Functions.ILike(p.Name, searchTerm) || p.Ean.Contains(search.Trim()));
         }
 
         var totalItems = await query.CountAsync();
@@ -39,6 +40,15 @@ public class ProductsController : ControllerBase
             .OrderBy(p => p.Name)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
+            .Select(p => new
+            {
+                p.Id,
+                p.Ean,
+                p.Name,
+                p.Category,
+                p.Price,
+                p.InventorySessionId
+            })
             .ToListAsync();
 
         return Ok(new
@@ -52,37 +62,15 @@ public class ProductsController : ControllerBase
     }
 
     [HttpPost("{inventorySessionId:guid}")]
-    public async Task<ActionResult<Product>> CreateProduct(
-        Guid inventorySessionId,
-        [FromBody] SaveProductRequest request)
+    public async Task<ActionResult<Product>> CreateProduct(Guid inventorySessionId, [FromBody] ProductUpsertRequest request)
     {
-        var sessionExists = await _context.InventorySessions.AnyAsync(s => s.Id == inventorySessionId);
-        if (!sessionExists)
-        {
-            return NotFound(new { message = "Sessão de inventário não encontrada." });
-        }
-
-        var ean = request.Ean.Trim();
-        var name = request.Name.Trim();
-
-        if (string.IsNullOrWhiteSpace(ean) || string.IsNullOrWhiteSpace(name))
-        {
-            return BadRequest(new { message = "EAN e nome são obrigatórios." });
-        }
-
-        var productAlreadyExists = await _context.Products
-            .AnyAsync(p => p.InventorySessionId == inventorySessionId && p.Ean == ean);
-
-        if (productAlreadyExists)
-        {
-            return Conflict(new { message = "Já existe um produto com este EAN nesta sessão." });
-        }
-
         var product = new Product
         {
-            Ean = ean,
-            Name = name,
-            InventorySessionId = inventorySessionId
+            InventorySessionId = inventorySessionId,
+            Ean = request.Ean.Trim(),
+            Name = request.Name.Trim(),
+            Category = request.Category?.Trim() ?? string.Empty,
+            Price = request.Price ?? 0
         };
 
         _context.Products.Add(product);
@@ -91,37 +79,30 @@ public class ProductsController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    public async Task<IActionResult> UpdateProduct(Guid id, [FromBody] SaveProductRequest request)
+    public async Task<IActionResult> UpdateProduct(Guid id, [FromBody] ProductUpsertRequest request)
     {
-        var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == id);
-        if (product == null)
-        {
-            return NotFound(new { message = "Produto não encontrado." });
-        }
+        var product = await _context.Products
+            .Where(p => p.DeletedAt == null)
+            .FirstOrDefaultAsync(p => p.Id == id);
 
-        var ean = request.Ean.Trim();
-        var name = request.Name.Trim();
+        if (product == null) return NotFound();
 
-        if (string.IsNullOrWhiteSpace(ean) || string.IsNullOrWhiteSpace(name))
-        {
-            return BadRequest(new { message = "EAN e nome são obrigatórios." });
-        }
-
-        var productAlreadyExists = await _context.Products.AnyAsync(p =>
-            p.Id != id &&
-            p.InventorySessionId == product.InventorySessionId &&
-            p.Ean == ean);
-
-        if (productAlreadyExists)
-        {
-            return Conflict(new { message = "Já existe um produto com este EAN nesta sessão." });
-        }
-
-        product.Ean = ean;
-        product.Name = name;
+        product.Ean = request.Ean.Trim();
+        product.Name = request.Name.Trim();
+        product.Category = request.Category?.Trim() ?? product.Category;
+        product.Price = request.Price ?? product.Price;
         product.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            if (!_context.Products.Any(e => e.Id == id)) return NotFound();
+            throw;
+        }
+
         return NoContent();
     }
 
@@ -140,27 +121,21 @@ public class ProductsController : ControllerBase
     [HttpDelete("session/{inventorySessionId:guid}")]
     public async Task<IActionResult> DeleteAllProductsBySession(Guid inventorySessionId)
     {
-        var products = await _context.Products
-            .Where(p => p.InventorySessionId == inventorySessionId && p.DeletedAt == null)
-            .ToListAsync();
-
-        if (!products.Any()) return NoContent();
-
         var now = DateTime.UtcNow;
+        var updated = await _context.Products
+            .Where(p => p.InventorySessionId == inventorySessionId && p.DeletedAt == null)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(p => p.DeletedAt, now));
 
-        foreach (var product in products)
-        {
-            product.DeletedAt = now;
-        }
-
-        await _context.SaveChangesAsync();
+        if (updated == 0) return NoContent();
 
         return NoContent();
     }
-}
 
-public class SaveProductRequest
-{
-    public string Ean { get; set; } = string.Empty;
-    public string Name { get; set; } = string.Empty;
+    public class ProductUpsertRequest
+    {
+        public string Ean { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string? Category { get; set; }
+        public decimal? Price { get; set; }
+    }
 }

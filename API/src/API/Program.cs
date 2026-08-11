@@ -2,23 +2,25 @@ using InventoryManager.API.Data;
 using InventoryManager.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Api.Services;
 using System.Text.Json.Serialization;
+using System.IO.Compression;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddCors(options =>
 {
+    var configuredOrigins = builder.Configuration
+        .GetSection("Cors:AllowedOrigins")
+        .Get<string[]>() ?? [];
+
     options.AddPolicy("AllowApp",
         policy =>
         {
-            policy.WithOrigins(
-                "http://localhost:5173",
-                "http://localhost",
-                "http://absoluta-log-s3-sandbox.s3-website-sa-east-1.amazonaws.com"
-            )
+            policy.WithOrigins(configuredOrigins)
                   .AllowAnyHeader()
                   .AllowAnyMethod();
         });
@@ -26,7 +28,12 @@ builder.Services.AddCors(options =>
 builder.Services.AddScoped<IMailService, AwsSesEmailService>();
 
 var jwtSettings = builder.Configuration.GetSection("Jwt");
-var key = Encoding.ASCII.GetBytes(jwtSettings.GetValue<string>("Key") ?? "DEVELOPMENTKEYTOCHANGE"); // TODO change in production
+var jwtKey = jwtSettings.GetValue<string>("Key");
+if (string.IsNullOrWhiteSpace(jwtKey) || jwtKey.Length < 32)
+{
+    throw new InvalidOperationException("Configure Jwt:Key com pelo menos 32 caracteres usando variavel de ambiente ou secret manager.");
+}
+var key = Encoding.ASCII.GetBytes(jwtKey);
 
 builder.Services.AddAuthentication(options =>
 {
@@ -35,7 +42,7 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
-    options.RequireHttpsMetadata = false; // TODO change in production
+    options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
     options.SaveToken = true;
     options.TokenValidationParameters = new TokenValidationParameters
     {
@@ -43,7 +50,7 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(key),
         ValidateIssuer = true,
         ValidIssuer = jwtSettings.GetValue<string>("Issuer"),
-        ValidateAudience = true, // TODO change in production
+        ValidateAudience = true,
         ValidAudience = jwtSettings.GetValue<string>("Audience")
     };
 });
@@ -55,24 +62,53 @@ builder.Services.AddControllers().AddJsonOptions(options =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+});
+builder.Services.Configure<BrotliCompressionProviderOptions>(options =>
+{
+    options.Level = CompressionLevel.Fastest;
+});
+builder.Services.Configure<GzipCompressionProviderOptions>(options =>
+{
+    options.Level = CompressionLevel.Fastest;
+});
 
-builder.Services.AddDbContext<InventoryDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    throw new InvalidOperationException("Configure ConnectionStrings:DefaultConnection usando variavel de ambiente ou secret manager.");
+}
+
+builder.Services.AddDbContextPool<InventoryDbContext>(options =>
+    options.UseNpgsql(
+        connectionString,
+        npgsqlOptions =>
+        {
+            npgsqlOptions.EnableRetryOnFailure(3);
+            npgsqlOptions.CommandTimeout(30);
+        }));
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
+if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("Database:RunMigrationsOnStartup"))
 {
-    var services = scope.ServiceProvider;
-    try
+    using (var scope = app.Services.CreateScope())
     {
-        var context = services.GetRequiredService<InventoryDbContext>();
-        DbInitializer.Initialize(context);
-    }
-    catch (Exception ex)
-    {
-        var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "Ocorreu um erro ao popular o banco de dados.");
+        var services = scope.ServiceProvider;
+        try
+        {
+            var context = services.GetRequiredService<InventoryDbContext>();
+            DbInitializer.Initialize(context);
+        }
+        catch (Exception ex)
+        {
+            var logger = services.GetRequiredService<ILogger<Program>>();
+            logger.LogError(ex, "Ocorreu um erro ao popular o banco de dados.");
+        }
     }
 }
 
@@ -82,10 +118,11 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// 3. Ativar CORS
+app.UseResponseCompression();
 app.UseCors("AllowApp");
 
 app.UseHttpsRedirection();
+app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 

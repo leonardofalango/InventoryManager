@@ -11,11 +11,52 @@ import {
   RefreshCcw,
   ClipboardList,
   Hash,
+  Loader2,
+  UploadCloud,
+  WifiOff,
+  Clock3,
 } from "lucide-react";
 
 import { useFeedbackStore } from "../../../store/feedbackStore";
 import { api } from "../../../lib/axios";
+import { getApiErrorMessage, isNetworkError } from "../../../lib/httpError";
 import type { ActiveSession } from "../types/scan-types";
+import {
+  createOfflineCountId,
+  enqueueOfflineCount,
+  getNetworkConnected,
+  readOfflineCounts,
+  removeOfflineCounts,
+  type OfflineInventoryCount,
+  watchNetworkStatus,
+} from "../services/offlineCountQueue";
+import {
+  getCachedActiveSession,
+  getCachedLocation,
+  saveCachedActiveSession,
+  saveCachedLocation,
+} from "../services/scanCache";
+
+import { getEanValidationMessage } from "../../../lib/ean";
+
+type ScannedItemStatus = "synced" | "queued" | "error";
+
+interface ScannedItem {
+  id: string;
+  code: string;
+  time: string;
+  status: ScannedItemStatus;
+  qty: number;
+  message?: string;
+}
+
+const offlineBatchSize = 50;
+
+const formatScanTime = () =>
+  new Date().toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
 const vibrate = (pattern: number | number[]) => {
   if (navigator.vibrate) {
@@ -31,20 +72,127 @@ export function ScanPage() {
     null,
   );
   const [isLoadingSession, setIsLoadingSession] = useState(true);
+  const [sessionError, setSessionError] = useState<string | null>(null);
   const [locationName, setLocationName] = useState<string>("");
   const [locationId, setLocationId] = useState<string>("");
   const [isLocationLocked, setIsLocationLocked] = useState(false);
   const [manualInput, setManualInput] = useState("");
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [showManualInput, setShowManualInput] = useState(false);
+  const [isProcessingScan, setIsProcessingScan] = useState(false);
+  const scanQueueRef = useRef<string[]>([]);
+  const [isSyncingOffline, setIsSyncingOffline] = useState(false);
+  const [offlineQueueCount, setOfflineQueueCount] = useState(0);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   const [scanQuantity, setScanQuantity] = useState<number>(1);
   const [showQuantityModal, setShowQuantityModal] = useState(false);
   const [tempQuantity, setTempQuantity] = useState<string>("");
 
-  const [scannedItems, setScannedItems] = useState<
-    { id: string; code: string; time: string; success: boolean; qty: number }[]
-  >([]);
+  const [scannedItems, setScannedItems] = useState<ScannedItem[]>([]);
+  const syncInProgressRef = useRef(false);
+
+  const refreshOfflineQueueCount = useCallback(async () => {
+    const queue = await readOfflineCounts();
+    setOfflineQueueCount(queue.length);
+  }, []);
+
+  const addScannedItem = useCallback((item: ScannedItem) => {
+    setScannedItems((prev) => [item, ...prev.slice(0, 49)]);
+  }, []);
+
+  const syncOfflineCounts = useCallback(
+    async (silent = false) => {
+      if (syncInProgressRef.current) return;
+
+      const connected = await getNetworkConnected();
+      setIsOnline(connected);
+
+      if (!connected) {
+        if (!silent) {
+          showFeedback(
+            "Sem internet. As leituras continuam salvas no coletor.",
+            "info",
+          );
+        }
+        return;
+      }
+
+      const queue = await readOfflineCounts();
+      setOfflineQueueCount(queue.length);
+
+      if (queue.length === 0) return;
+
+      syncInProgressRef.current = true;
+      setIsSyncingOffline(true);
+
+      let syncedCount = 0;
+
+      try {
+        const bySession = queue.reduce(
+          (acc, item) => {
+            acc[item.inventorySessionId] = acc[item.inventorySessionId] ?? [];
+            acc[item.inventorySessionId].push(item);
+            return acc;
+          },
+          {} as Record<string, OfflineInventoryCount[]>,
+        );
+
+        for (const [sessionId, items] of Object.entries(bySession)) {
+          for (let index = 0; index < items.length; index += offlineBatchSize) {
+            const batch = items.slice(index, index + offlineBatchSize);
+            const batchIds = batch.map((item) => item.localId);
+
+            await api.post(`/inventorysession/${sessionId}/counts/batch`, {
+              counts: batch.map((item) => ({
+                ean: item.ean,
+                productLocationId: item.productLocationId,
+                quantity: item.quantity,
+                countVersion: item.countVersion,
+                countedAt: item.countedAt,
+                clientCountId: item.localId,
+              })),
+            });
+
+            await removeOfflineCounts(batchIds);
+            syncedCount += batch.length;
+            setOfflineQueueCount((current) =>
+              Math.max(0, current - batch.length),
+            );
+          }
+        }
+
+        await refreshOfflineQueueCount();
+
+        if (syncedCount > 0) {
+          showFeedback(
+            `${syncedCount} leitura${syncedCount > 1 ? "s" : ""} offline enviada${syncedCount > 1 ? "s" : ""}.`,
+            "success",
+          );
+        }
+      } catch (error) {
+        if (isNetworkError(error)) {
+          setIsOnline(false);
+          if (!silent) {
+            showFeedback(
+              "A conexao caiu durante o envio. A fila offline foi mantida.",
+              "info",
+            );
+          }
+        } else {
+          showFeedback(
+            getApiErrorMessage(error, "Erro ao sincronizar leituras offline."),
+            "error",
+          );
+        }
+      } finally {
+        syncInProgressRef.current = false;
+        setIsSyncingOffline(false);
+        await refreshOfflineQueueCount();
+      }
+    },
+    [refreshOfflineQueueCount, showFeedback],
+  );
 
   useEffect(() => {
     if (!isCameraOpen && !showManualInput && !showQuantityModal) {
@@ -66,20 +214,66 @@ export function ScanPage() {
     return () => window.removeEventListener("click", handleGlobalFocus);
   }, [isCameraOpen, showManualInput, showQuantityModal]);
 
-  const fetchActiveSession = async () => {
+  useEffect(() => {
+    refreshOfflineQueueCount();
+
+    getNetworkConnected().then((connected) => {
+      setIsOnline(connected);
+      if (connected) {
+        setSessionError(null);
+        syncOfflineCounts(true);
+      }
+    });
+
+    return watchNetworkStatus((connected) => {
+      setIsOnline(connected);
+      if (connected) {
+        setSessionError(null);
+        syncOfflineCounts(true);
+      }
+    });
+  }, [refreshOfflineQueueCount, syncOfflineCounts]);
+
+  const fetchActiveSession = useCallback(async () => {
+    setIsLoadingSession(true);
+    setSessionError(null);
+
     try {
       const response = await api.get("/inventorysession/active");
       setActiveSession(response.data);
-    } catch (error: any) {
+      saveCachedActiveSession(response.data);
+    } catch (error) {
+      if (isNetworkError(error)) {
+        const cachedSession = getCachedActiveSession();
+
+        if (cachedSession) {
+          setActiveSession(cachedSession);
+          setSessionError(
+            "Sem internet. Usando o ultimo inventario carregado neste coletor.",
+          );
+          showFeedback(
+            "Sem internet. O coletor vai salvar as leituras para enviar depois.",
+            "info",
+          );
+          return;
+        }
+      }
+
       setActiveSession(null);
+      setSessionError(
+        getApiErrorMessage(
+          error,
+          "Nao foi possivel buscar o inventario ativo.",
+        ),
+      );
     } finally {
       setIsLoadingSession(false);
     }
-  };
+  }, [showFeedback]);
 
   useEffect(() => {
     fetchActiveSession();
-  }, []);
+  }, [fetchActiveSession]);
 
   const processBarcode = useCallback(
     async (code: string) => {
@@ -91,83 +285,265 @@ export function ScanPage() {
           const location = await api.get(
             `/productlocation/${activeSession.id}/${cleanCode}`,
           );
+
           setLocationId(location.data.id);
           setLocationName(cleanCode);
           setIsLocationLocked(true);
+          saveCachedLocation(activeSession.id, {
+            id: location.data.id,
+            barcode: cleanCode,
+          });
           vibrate(100);
-          showFeedback(`Localização ${cleanCode} confirmada`, "success");
-        } catch (error: any) {
+          showFeedback(`Localizacao ${cleanCode} confirmada`, "success");
+        } catch (error) {
+          if (isNetworkError(error)) {
+            const cachedLocation = getCachedLocation(
+              activeSession.id,
+              cleanCode,
+            );
+
+            if (cachedLocation) {
+              setLocationId(cachedLocation.id);
+              setLocationName(cachedLocation.barcode);
+              setIsLocationLocked(true);
+              vibrate(100);
+              showFeedback(
+                `Localizacao ${cachedLocation.barcode} carregada do cache offline.`,
+                "info",
+              );
+              return;
+            }
+          }
+
           vibrate([200, 100, 200]);
-          showFeedback("Localização inválida", "error");
         }
+
         return;
       }
 
-      const qtyToSubmit = scanQuantity;
-      setScanQuantity(1);
-
-      try {
-        const response = await api.post(
-          `/inventorysession/${activeSession.id}/count`,
-          {
-            ean: cleanCode,
-            productLocationId: locationId,
-            quantity: qtyToSubmit,
-            countVersion: 1,
-          },
-        );
-
-        setScannedItems((prev) => [
-          {
-            id: response.data?.countId || Math.random().toString(),
-            code: cleanCode,
-            time: new Date().toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-            success: true,
-            qty: qtyToSubmit,
-          },
-          ...prev.slice(0, 49),
-        ]);
-        vibrate(80);
+      if (!locationId) {
         showFeedback(
-          `Lido: ${cleanCode} ${qtyToSubmit > 1 ? `(x${qtyToSubmit})` : ""}`,
-          "success",
-        );
-      } catch (error: any) {
-        setScannedItems((prev) => [
-          {
-            id: Math.random().toString(),
-            code: cleanCode,
-            time: new Date().toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-            success: false,
-            qty: qtyToSubmit,
-          },
-          ...prev,
-        ]);
-        vibrate([300, 150, 300]);
-        showFeedback(
-          error.response?.data?.message || "Erro ao registrar",
+          "Bipe a localizacao novamente antes de contar itens.",
           "error",
         );
-        fetchActiveSession();
+        return;
+      }
+
+      if (isProcessingScan) {
+        showFeedback("Aguarde a leitura atual terminar.", "info");
+        return;
+      }
+
+      setIsProcessingScan(true);
+      try {
+        const qtyToSubmit = scanQuantity;
+        const countedAt = new Date().toISOString();
+        const clientCountId = createOfflineCountId();
+        setScanQuantity(1);
+
+        const validationMessage = getEanValidationMessage(cleanCode);
+        if (validationMessage) {
+          showFeedback(validationMessage, "error");
+          return;
+        }
+
+        try {
+          const response = await api.post(
+            `/inventorysession/${activeSession.id}/count`,
+            {
+              ean: cleanCode,
+              productLocationId: locationId,
+              quantity: qtyToSubmit,
+              countVersion: 1,
+              countedAt,
+              clientCountId,
+            },
+          );
+
+          addScannedItem({
+            id: response.data?.countId || clientCountId,
+            code: cleanCode,
+            time: formatScanTime(),
+            status: "synced",
+            qty: qtyToSubmit,
+          });
+          vibrate(80);
+          showFeedback(
+            `Lido: ${cleanCode} ${qtyToSubmit > 1 ? `(x${qtyToSubmit})` : ""}`,
+            "success",
+          );
+        } catch (error) {
+          if (isNetworkError(error)) {
+            const queuedItem = await enqueueOfflineCount({
+              localId: clientCountId,
+              inventorySessionId: activeSession.id,
+              ean: cleanCode,
+              productLocationId: locationId,
+              quantity: qtyToSubmit,
+              countVersion: 1,
+              countedAt,
+            });
+
+            addScannedItem({
+              id: queuedItem.localId,
+              code: cleanCode,
+              time: formatScanTime(),
+              status: "queued",
+              qty: qtyToSubmit,
+              message: "Salvo no coletor",
+            });
+            await refreshOfflineQueueCount();
+            setIsOnline(false);
+            vibrate(80);
+            showFeedback(
+              `Sem internet. Leitura ${cleanCode} salva para envio posterior.`,
+              "info",
+            );
+            return;
+          }
+
+          const errorMessage = getApiErrorMessage(
+            error,
+            "Erro ao registrar leitura.",
+          );
+
+          addScannedItem({
+            id: clientCountId,
+            code: cleanCode,
+            time: formatScanTime(),
+            status: "error",
+            qty: qtyToSubmit,
+            message: errorMessage,
+          });
+          vibrate([300, 150, 300]);
+          fetchActiveSession();
+        }
+      } finally {
+        setIsProcessingScan(false);
       }
     },
-    [activeSession, isLocationLocked, locationId, showFeedback, scanQuantity],
+    [
+      activeSession,
+      addScannedItem,
+      fetchActiveSession,
+      isLocationLocked,
+      isProcessingScan,
+      locationId,
+      refreshOfflineQueueCount,
+      scanQuantity,
+      showFeedback,
+    ],
   );
 
-  const handleHiddenInput = (e: React.FormEvent<HTMLFormElement>) => {
+  const processQueuedBarcodes = useCallback(async () => {
+    if (isProcessingScan) return;
+    if (scanQueueRef.current.length === 0) return;
+
+    setIsProcessingScan(true);
+    try {
+      while (scanQueueRef.current.length > 0) {
+        const nextCode = scanQueueRef.current.shift()!;
+        await processBarcode(nextCode);
+      }
+    } finally {
+      setIsProcessingScan(false);
+    }
+  }, [isProcessingScan, processBarcode]);
+
+  const enqueueBarcode = useCallback(
+    async (code: string) => {
+      scanQueueRef.current.push(code.trim());
+      await processQueuedBarcodes();
+    },
+    [processQueuedBarcodes],
+  );
+
+  const processMultiBarcodeInput = useCallback(
+    async (rawValue: string) => {
+      const codes = rawValue
+        .split(/\s+/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+
+      for (const code of codes) {
+        await enqueueBarcode(code);
+      }
+    },
+    [enqueueBarcode],
+  );
+
+  useEffect(() => {
+    if (!isCameraOpen) return;
+
+    let scanner: any = null;
+    let disposed = false;
+    let hasDecoded = false;
+
+    const startScanner = async () => {
+      try {
+        const { Html5Qrcode } = await import("html5-qrcode");
+        if (disposed) return;
+
+        scanner = new Html5Qrcode("reader");
+        const cameras = await Html5Qrcode.getCameras();
+        const preferredCamera =
+          cameras.find((camera) =>
+            camera.label.toLowerCase().includes("back"),
+          )?.id || cameras[0]?.id;
+
+        if (!preferredCamera) {
+          showFeedback("Nenhuma camera disponivel neste dispositivo.", "error");
+          setIsCameraOpen(false);
+          return;
+        }
+
+        await scanner.start(
+          preferredCamera,
+          { fps: 10, qrbox: { width: 260, height: 180 } },
+          (decodedText: string) => {
+            if (hasDecoded) return;
+            hasDecoded = true;
+            setIsCameraOpen(false);
+            void processMultiBarcodeInput(decodedText);
+          },
+          () => {},
+        );
+      } catch {
+        if (!disposed) {
+          showFeedback("Nao foi possivel iniciar a camera.", "error");
+          setIsCameraOpen(false);
+        }
+      }
+    };
+
+    void startScanner();
+
+    return () => {
+      disposed = true;
+      if (!scanner) return;
+
+      const cleanup = () => {
+        try {
+          scanner.clear();
+        } catch {}
+      };
+
+      if (scanner.isScanning) {
+        scanner.stop().then(cleanup).catch(cleanup);
+      } else {
+        cleanup();
+      }
+    };
+  }, [isCameraOpen, processMultiBarcodeInput, showFeedback]);
+
+  const handleHiddenInput = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const val = (
-      e.currentTarget.elements.namedItem("barcode") as HTMLInputElement
-    ).value;
-    processBarcode(val);
-    (e.currentTarget.elements.namedItem("barcode") as HTMLInputElement).value =
-      "";
+    const input = e.currentTarget.elements.namedItem(
+      "barcode",
+    ) as HTMLInputElement;
+    const val = input.value;
+    input.value = "";
+    await processMultiBarcodeInput(val);
   };
 
   if (isLoadingSession)
@@ -186,14 +562,19 @@ export function ScanPage() {
           Sessão Fechada
         </h2>
         <p className="text-gray-500 text-sm md:text-base">
-          Nenhum inventário ativo no momento.
+          {sessionError || "Nenhum inventario ativo no momento."}
         </p>
         <button
           onClick={fetchActiveSession}
-          className="mt-6 flex items-center justify-center gap-2 bg-accent hover:bg-accent/80 text-gray-900 font-bold uppercase py-3 px-6 rounded-xl transition-colors active:scale-95 shadow-lg"
+          disabled={isLoadingSession}
+          className="mt-6 flex items-center justify-center gap-2 bg-accent hover:bg-accent/80 text-gray-900 font-bold uppercase py-3 px-6 rounded-xl transition-colors active:scale-95 shadow-lg disabled:opacity-60"
         >
-          <RefreshCcw size={20} />
-          Verificar Novamente
+          {isLoadingSession ? (
+            <Loader2 size={20} className="animate-spin" />
+          ) : (
+            <RefreshCcw size={20} />
+          )}
+          {isLoadingSession ? "Verificando..." : "Verificar Novamente"}
         </button>
       </div>
     );
@@ -221,6 +602,45 @@ export function ScanPage() {
             {activeSession.clientName}
           </span>
         </div>
+
+        {(sessionError || offlineQueueCount > 0 || !isOnline) && (
+          <div className="bg-gray-950 border-b border-gray-800 px-4 py-2 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+            <div className="flex items-center gap-2 text-xs text-gray-300">
+              {!isOnline ? (
+                <WifiOff size={16} className="text-yellow-400 shrink-0" />
+              ) : (
+                <UploadCloud size={16} className="text-accent shrink-0" />
+              )}
+              <span>
+                {!isOnline
+                  ? "Sem internet. Leituras serao salvas no coletor."
+                  : sessionError || "Fila offline pronta para envio."}
+                {offlineQueueCount > 0 && (
+                  <strong className="ml-1 text-textAccent">
+                    {offlineQueueCount} pendente
+                    {offlineQueueCount > 1 ? "s" : ""}
+                  </strong>
+                )}
+              </span>
+            </div>
+
+            {offlineQueueCount > 0 && (
+              <button
+                type="button"
+                onClick={() => syncOfflineCounts(false)}
+                disabled={isSyncingOffline}
+                className="self-start md:self-auto inline-flex items-center gap-2 rounded-md border border-gray-700 bg-gray-800 px-3 py-1.5 text-xs font-bold uppercase text-textAccent disabled:opacity-50"
+              >
+                {isSyncingOffline ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <UploadCloud size={14} />
+                )}
+                {isSyncingOffline ? "Enviando..." : "Enviar fila"}
+              </button>
+            )}
+          </div>
+        )}
 
         <div
           className={`px-4 py-4 md:py-3 flex items-center justify-between transition-colors ${
@@ -272,7 +692,8 @@ export function ScanPage() {
 
             <button
               onClick={() => setShowManualInput(true)}
-              className="hidden md:flex p-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-gray-300 transition-colors"
+              disabled={isProcessingScan}
+              className="hidden md:flex p-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-gray-300 transition-colors disabled:opacity-50"
             >
               <Keyboard size={18} />
             </button>
@@ -283,7 +704,8 @@ export function ScanPage() {
                   setScannedItems([]);
                   setScanQuantity(1);
                 }}
-                className="flex items-center justify-center px-3 py-2 md:py-1.5 bg-gray-700/80 md:bg-red-900/40 active:bg-gray-600 md:hover:bg-red-900/60 rounded-lg md:rounded text-gray-200 md:text-red-400 border border-gray-600 md:border-red-800 shadow-sm transition-colors"
+                disabled={isProcessingScan}
+                className="flex items-center justify-center px-3 py-2 md:py-1.5 bg-gray-700/80 md:bg-red-900/40 active:bg-gray-600 md:hover:bg-red-900/60 rounded-lg md:rounded text-gray-200 md:text-red-400 border border-gray-600 md:border-red-800 shadow-sm transition-colors disabled:opacity-50"
               >
                 <RefreshCcw size={16} className="md:mr-1" />
                 <span className="hidden md:inline text-xs font-bold uppercase">
@@ -331,19 +753,23 @@ export function ScanPage() {
             <div
               key={item.id}
               className={`p-4 md:p-3 rounded-xl md:rounded-lg flex items-center justify-between border shadow-sm transition-all ${
-                item.success
+                item.status === "synced"
                   ? index === 0
                     ? "bg-gray-800 border-accent/50 scale-[1.02] md:scale-100"
                     : "bg-gray-800/60 border-gray-700"
-                  : "bg-red-900/30 border-red-500/50"
+                  : item.status === "queued"
+                    ? "bg-yellow-900/20 border-yellow-500/50"
+                    : "bg-red-900/30 border-red-500/50"
               }`}
             >
               <div className="flex items-center gap-4 md:gap-3">
-                {item.success ? (
+                {item.status === "synced" ? (
                   <CheckCircle2
                     size={24}
                     className={`md:w-5 md:h-5 ${index === 0 ? "text-accent" : "text-green-500"}`}
                   />
+                ) : item.status === "queued" ? (
+                  <Clock3 size={24} className="text-yellow-400 md:w-5 md:h-5" />
                 ) : (
                   <AlertCircle
                     size={24}
@@ -353,7 +779,11 @@ export function ScanPage() {
                 <div className="flex flex-col">
                   <span
                     className={`font-mono text-xl md:text-base font-bold tracking-wider flex items-center gap-2 ${
-                      item.success ? "text-textAccent" : "text-red-100"
+                      item.status === "synced"
+                        ? "text-textAccent"
+                        : item.status === "queued"
+                          ? "text-yellow-100"
+                          : "text-red-100"
                     }`}
                   >
                     {item.code}
@@ -363,9 +793,18 @@ export function ScanPage() {
                       </span>
                     )}
                   </span>
-                  {!item.success && (
-                    <span className="text-[10px] text-red-400 font-bold uppercase">
-                      Erro no registro
+                  {item.status !== "synced" && (
+                    <span
+                      className={`text-[10px] font-bold uppercase ${
+                        item.status === "queued"
+                          ? "text-yellow-400"
+                          : "text-red-400"
+                      }`}
+                    >
+                      {item.message ||
+                        (item.status === "queued"
+                          ? "Aguardando envio"
+                          : "Erro no registro")}
                     </span>
                   )}
                 </div>
@@ -385,13 +824,14 @@ export function ScanPage() {
               setTempQuantity("");
               setShowQuantityModal(true);
             } else {
-              showFeedback("Bipe a localização primeiro", "error");
+              showFeedback("Bipe a localizacao primeiro", "error");
             }
           }}
+          disabled={isProcessingScan}
           className={`flex-1 flex flex-col items-center justify-center py-3 rounded-xl border transition-colors ${
             scanQuantity > 1
               ? "bg-accent text-gray-900 border-accent"
-              : "bg-gray-700 text-textAccent border-gray-600 active:bg-gray-600"
+              : "bg-gray-700 text-textAccent border-gray-600 active:bg-gray-600 disabled:opacity-50"
           }`}
         >
           <Hash size={24} className="mb-1" />
@@ -401,14 +841,16 @@ export function ScanPage() {
         </button>
         <button
           onClick={() => setShowManualInput(true)}
-          className="flex-1 flex flex-col items-center justify-center py-3 bg-gray-700 active:bg-gray-600 rounded-xl text-textAccent border border-gray-600"
+          disabled={isProcessingScan}
+          className="flex-1 flex flex-col items-center justify-center py-3 bg-gray-700 active:bg-gray-600 rounded-xl text-textAccent border border-gray-600 disabled:opacity-50"
         >
           <Keyboard size={24} className="mb-1" />
           <span className="text-[10px] font-bold uppercase">Digitar</span>
         </button>
         <button
           onClick={() => setIsCameraOpen(true)}
-          className="flex-1 flex flex-col items-center justify-center py-3 bg-gray-700 active:bg-gray-600 rounded-xl text-textAccent border border-gray-600"
+          disabled={isProcessingScan}
+          className="flex-1 flex flex-col items-center justify-center py-3 bg-gray-700 active:bg-gray-600 rounded-xl text-textAccent border border-gray-600 disabled:opacity-50"
         >
           <Camera size={24} className="mb-1" />
           <span className="text-[10px] font-bold uppercase">Câmera</span>
@@ -485,15 +927,16 @@ export function ScanPage() {
               </h3>
               <button
                 onClick={() => setShowManualInput(false)}
-                className="p-2 md:p-1 bg-gray-700 rounded-full text-gray-300"
+                disabled={isProcessingScan}
+                className="p-2 md:p-1 bg-gray-700 rounded-full text-gray-300 disabled:opacity-50"
               >
                 <X size={24} className="md:w-5 md:h-5" />
               </button>
             </div>
             <form
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
-                processBarcode(manualInput);
+                await processMultiBarcodeInput(manualInput);
                 setManualInput("");
                 setShowManualInput(false);
               }}
@@ -503,15 +946,21 @@ export function ScanPage() {
                 type="text"
                 value={manualInput}
                 onChange={(e) => setManualInput(e.target.value)}
+                disabled={isProcessingScan}
                 autoFocus
-                className="w-full md:flex-1 bg-gray-900 border-2 md:border border-gray-600 rounded-xl md:rounded-lg py-4 md:py-2 px-6 md:px-3 text-xl md:text-base text-center md:text-left font-mono font-bold text-textAccent outline-none focus:border-accent"
+                className="w-full md:flex-1 bg-gray-900 border-2 md:border border-gray-600 rounded-xl md:rounded-lg py-4 md:py-2 px-6 md:px-3 text-xl md:text-base text-center md:text-left font-mono font-bold text-textAccent outline-none focus:border-accent disabled:opacity-60"
                 placeholder="Código EAN"
               />
               <button
                 type="submit"
-                className="w-full md:w-auto bg-accent hover:bg-accent/80 py-4 md:py-2 md:px-6 rounded-xl md:rounded-lg text-gray-900 font-extrabold uppercase"
+                disabled={isProcessingScan || !manualInput.trim()}
+                className="w-full md:w-auto bg-accent hover:bg-accent/80 py-4 md:py-2 md:px-6 rounded-xl md:rounded-lg text-gray-900 font-extrabold uppercase disabled:opacity-60 flex items-center justify-center gap-2"
               >
-                OK
+                {isProcessingScan ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  "OK"
+                )}
               </button>
             </form>
           </div>

@@ -28,7 +28,6 @@ export function ChangePasswordPage() {
       }
       navigate("/login");
     } catch (err) {
-      showFeedback("Erro ao trocar senha.", "error");
     } finally {
       setLoading(false);
     }
