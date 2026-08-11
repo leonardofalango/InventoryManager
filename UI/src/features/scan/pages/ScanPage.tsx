@@ -472,6 +472,70 @@ export function ScanPage() {
     [enqueueBarcode],
   );
 
+  useEffect(() => {
+    if (!isCameraOpen) return;
+
+    let scanner: any = null;
+    let disposed = false;
+    let hasDecoded = false;
+
+    const startScanner = async () => {
+      try {
+        const { Html5Qrcode } = await import("html5-qrcode");
+        if (disposed) return;
+
+        scanner = new Html5Qrcode("reader");
+        const cameras = await Html5Qrcode.getCameras();
+        const preferredCamera =
+          cameras.find((camera) =>
+            camera.label.toLowerCase().includes("back"),
+          )?.id || cameras[0]?.id;
+
+        if (!preferredCamera) {
+          showFeedback("Nenhuma camera disponivel neste dispositivo.", "error");
+          setIsCameraOpen(false);
+          return;
+        }
+
+        await scanner.start(
+          preferredCamera,
+          { fps: 10, qrbox: { width: 260, height: 180 } },
+          (decodedText: string) => {
+            if (hasDecoded) return;
+            hasDecoded = true;
+            setIsCameraOpen(false);
+            void processMultiBarcodeInput(decodedText);
+          },
+          () => {},
+        );
+      } catch {
+        if (!disposed) {
+          showFeedback("Nao foi possivel iniciar a camera.", "error");
+          setIsCameraOpen(false);
+        }
+      }
+    };
+
+    void startScanner();
+
+    return () => {
+      disposed = true;
+      if (!scanner) return;
+
+      const cleanup = () => {
+        try {
+          scanner.clear();
+        } catch {}
+      };
+
+      if (scanner.isScanning) {
+        scanner.stop().then(cleanup).catch(cleanup);
+      } else {
+        cleanup();
+      }
+    };
+  }, [isCameraOpen, processMultiBarcodeInput, showFeedback]);
+
   const handleHiddenInput = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const input = e.currentTarget.elements.namedItem(

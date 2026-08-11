@@ -23,6 +23,10 @@ const getSessionStatusText = (status: number) => {
   }
 };
 
+let cachedInitialSessions: InventorySession[] | null = null;
+let cachedInitialSessionsAt = 0;
+const initialSessionsCacheMs = 30000;
+
 export function SessionAutocomplete({
   onSelect,
   selectedId,
@@ -31,18 +35,35 @@ export function SessionAutocomplete({
 }: SessionAutocompleteProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [sessions, setSessions] = useState<InventorySession[]>([]);
+  const [sessions, setSessions] = useState<InventorySession[] | null>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const wrapperRef = useRef<HTMLDivElement>(null);
   const feedbackService = useFeedbackStore();
 
   const fetchSessions = useCallback(async (query: string) => {
+    const normalizedQuery = query.trim();
+    const canUseCache =
+      !normalizedQuery &&
+      cachedInitialSessions &&
+      Date.now() - cachedInitialSessionsAt < initialSessionsCacheMs;
+
+    if (canUseCache) {
+      setSessions(cachedInitialSessions);
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const uri = `/inventorysession?page=1&pageSize=20&search=${query}&allInventories=true`;
+      const uri = `/inventorysession?page=1&pageSize=20&search=${encodeURIComponent(normalizedQuery)}&allInventories=true`;
       const res = await api.get(uri);
       const data = res.data.data || (Array.isArray(res.data) ? res.data : []);
+
+      if (!normalizedQuery) {
+        cachedInitialSessions = data;
+        cachedInitialSessionsAt = Date.now();
+      }
+
       setSessions(data);
     } catch (error) {
       console.error("Erro ao buscar sessões", error);
@@ -64,9 +85,22 @@ export function SessionAutocomplete({
     const initializeSession = async () => {
       setIsLoading(true);
       try {
-        const uri = `/inventorysession?page=1&pageSize=20&search=&allInventories=true`;
-        const res = await api.get(uri);
-        const data = res.data.data || (Array.isArray(res.data) ? res.data : []);
+        const cacheIsFresh =
+          cachedInitialSessions &&
+          Date.now() - cachedInitialSessionsAt < initialSessionsCacheMs;
+        const data = cacheIsFresh
+          ? cachedInitialSessions!
+          : await api
+              .get(
+                "/inventorysession?page=1&pageSize=20&search=&allInventories=true",
+              )
+              .then((res) => {
+                const sessions =
+                  res.data.data || (Array.isArray(res.data) ? res.data : []);
+                cachedInitialSessions = sessions;
+                cachedInitialSessionsAt = Date.now();
+                return sessions;
+              });
 
         if (!isMounted) return;
         setSessions(data);
@@ -124,7 +158,7 @@ export function SessionAutocomplete({
           value={isOpen ? search : selectedName || ""}
           onFocus={() => {
             setIsOpen(true);
-            if (!sessions.length) fetchSessions("");
+            if (!sessions?.length) fetchSessions("");
           }}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -148,7 +182,7 @@ export function SessionAutocomplete({
 
       {isOpen && (
         <div className="absolute z-50 w-full mt-2 bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-60 overflow-y-auto">
-          {sessions.length > 0 ? (
+          {sessions?.length ? (
             sessions.map((s) => (
               <button
                 key={s.id}

@@ -131,6 +131,7 @@ export function StockUploadPage() {
           try {
             setIsPreviewLoading(true);
             const response = await api.post("/stock/preview", {
+              inventorySessionId: sessionId,
               items: payload,
             });
 

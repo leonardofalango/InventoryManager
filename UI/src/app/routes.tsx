@@ -1,20 +1,85 @@
 import { createHashRouter, Navigate } from "react-router-dom";
 import { AppLayout } from "../components/layout/AppLayout";
-import { ProductUploadPage } from "../features/products/pages/ProductUploadPage";
-import { LoginPage } from "../features/auth/pages/LoginPage";
-import { DashboardPage } from "../features/dashboard/pages/DashboardPage";
-import { InventoryListPage } from "../features/inventory/pages/InventoryListPage";
-import { TeamPage } from "../features/team/pages/TeamPage";
-import { StockUploadPage } from "../features/stock/pages/StockUploadPage";
-import { ScanPage } from "../features/scan/pages/ScanPage";
 import { useAuthStore } from "../store/authStore";
-import type { JSX } from "react";
+import { lazy, Suspense, type JSX } from "react";
 import type { Role } from "../types";
-import { RecoveryPage } from "../features/auth/pages/RecoveryPage";
-import { ChangePasswordPage } from "../features/auth/pages/ChangePassword";
-import { LabelManagementPage } from "../features/label/pages/LabelManagementPage";
-import { AdminLogsPage } from "../features/dashboard/pages/Logs";
-import { EanManagementPage } from "../features/ean/pages/EanManagementPage";
+
+const ProductUploadPage = lazy(() =>
+  import("../features/products/pages/ProductUploadPage").then((module) => ({
+    default: module.ProductUploadPage,
+  })),
+);
+const LoginPage = lazy(() =>
+  import("../features/auth/pages/LoginPage").then((module) => ({
+    default: module.LoginPage,
+  })),
+);
+const DashboardPage = lazy(() =>
+  import("../features/dashboard/pages/DashboardPage").then((module) => ({
+    default: module.DashboardPage,
+  })),
+);
+const InventoryListPage = lazy(() =>
+  import("../features/inventory/pages/InventoryListPage").then((module) => ({
+    default: module.InventoryListPage,
+  })),
+);
+const TeamPage = lazy(() =>
+  import("../features/team/pages/TeamPage").then((module) => ({
+    default: module.TeamPage,
+  })),
+);
+const StockUploadPage = lazy(() =>
+  import("../features/stock/pages/StockUploadPage").then((module) => ({
+    default: module.StockUploadPage,
+  })),
+);
+const ScanPage = lazy(() =>
+  import("../features/scan/pages/ScanPage").then((module) => ({
+    default: module.ScanPage,
+  })),
+);
+const RecoveryPage = lazy(() =>
+  import("../features/auth/pages/RecoveryPage").then((module) => ({
+    default: module.RecoveryPage,
+  })),
+);
+const ChangePasswordPage = lazy(() =>
+  import("../features/auth/pages/ChangePassword").then((module) => ({
+    default: module.ChangePasswordPage,
+  })),
+);
+const LabelManagementPage = lazy(() =>
+  import("../features/label/pages/LabelManagementPage").then((module) => ({
+    default: module.LabelManagementPage,
+  })),
+);
+const AdminLogsPage = lazy(() =>
+  import("../features/dashboard/pages/Logs").then((module) => ({
+    default: module.AdminLogsPage,
+  })),
+);
+const EanManagementPage = lazy(() =>
+  import("../features/ean/pages/EanManagementPage").then((module) => ({
+    default: module.EanManagementPage,
+  })),
+);
+
+const RouteFallback = () => (
+  <div className="flex min-h-[240px] items-center justify-center text-textSecondary">
+    Carregando...
+  </div>
+);
+
+const withSuspense = (children: JSX.Element) => (
+  <Suspense fallback={<RouteFallback />}>{children}</Suspense>
+);
+
+const protectedElement = (children: JSX.Element, allowedRoles: Role[]) => (
+  <RoleProtectedRoute allowedRoles={allowedRoles}>
+    {withSuspense(children)}
+  </RoleProtectedRoute>
+);
 
 const RoleProtectedRoute = ({
   children,
@@ -49,88 +114,52 @@ export const router = createHashRouter([
     children: [
       {
         path: "/",
-        element: (
-          <RoleProtectedRoute allowedRoles={["ADMIN", "MANAGER"]}>
-            <DashboardPage />
-          </RoleProtectedRoute>
-        ),
+        element: protectedElement(<DashboardPage />, ["ADMIN", "MANAGER"]),
       },
       {
         path: "/logs",
-        element: (
-          <RoleProtectedRoute allowedRoles={["ADMIN"]}>
-            <AdminLogsPage />
-          </RoleProtectedRoute>
-        ),
+        element: protectedElement(<AdminLogsPage />, ["ADMIN"]),
       },
       {
         path: "/inventory",
-        element: (
-          <RoleProtectedRoute allowedRoles={["ADMIN", "MANAGER"]}>
-            <InventoryListPage />
-          </RoleProtectedRoute>
-        ),
+        element: protectedElement(<InventoryListPage />, ["ADMIN", "MANAGER"]),
       },
       {
         path: "/label",
-        element: (
-          <RoleProtectedRoute allowedRoles={["ADMIN", "MANAGER"]}>
-            <LabelManagementPage />
-          </RoleProtectedRoute>
-        ),
+        element: protectedElement(<LabelManagementPage />, ["ADMIN", "MANAGER"]),
       },
       {
         path: "/ean-management",
-        element: (
-          <RoleProtectedRoute allowedRoles={["ADMIN", "MANAGER"]}>
-            <EanManagementPage />
-          </RoleProtectedRoute>
-        ),
+        element: protectedElement(<EanManagementPage />, ["ADMIN", "MANAGER"]),
       },
       {
         path: "/products",
-        element: (
-          <RoleProtectedRoute allowedRoles={["ADMIN", "MANAGER"]}>
-            <ProductUploadPage />
-          </RoleProtectedRoute>
-        ),
+        element: protectedElement(<ProductUploadPage />, ["ADMIN", "MANAGER"]),
       },
       {
         path: "/team",
-        element: (
-          <RoleProtectedRoute allowedRoles={["ADMIN", "MANAGER"]}>
-            <TeamPage />
-          </RoleProtectedRoute>
-        ),
+        element: protectedElement(<TeamPage />, ["ADMIN", "MANAGER"]),
       },
       {
         path: "/stock",
-        element: (
-          <RoleProtectedRoute allowedRoles={["ADMIN", "MANAGER"]}>
-            <StockUploadPage />
-          </RoleProtectedRoute>
-        ),
+        element: protectedElement(<StockUploadPage />, ["ADMIN", "MANAGER"]),
       },
       {
         path: "/scan",
-        element: (
-          <RoleProtectedRoute allowedRoles={["ADMIN", "COUNTER"]}>
-            <ScanPage />
-          </RoleProtectedRoute>
-        ),
+        element: protectedElement(<ScanPage />, ["ADMIN", "COUNTER"]),
       },
     ],
   },
   {
     path: "/login",
-    element: <LoginPage />,
+    element: withSuspense(<LoginPage />),
   },
   {
     path: "/recovery",
-    element: <RecoveryPage />,
+    element: withSuspense(<RecoveryPage />),
   },
   {
     path: "/change-password",
-    element: <ChangePasswordPage />,
+    element: withSuspense(<ChangePasswordPage />),
   },
 ]);

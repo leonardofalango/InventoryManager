@@ -52,6 +52,7 @@ const ICONS = {
 
 export const AdminLogsPage: React.FC = () => {
   const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [totalLogs, setTotalLogs] = useState(0);
   const [loading, setLoading] = useState(true);
   const [expandedRowId, setExpandedRowId] = useState<number | null>(null);
   const [error, setError] = useState<boolean>(false);
@@ -59,8 +60,12 @@ export const AdminLogsPage: React.FC = () => {
   useEffect(() => {
     const fetchLogs = async () => {
       try {
-        const response = await api.get("/AuditLog");
-        setLogs(response.data);
+        const response = await api.get("/AuditLog", {
+          params: { page: 1, pageSize: 100 },
+        });
+        const data = response.data.data || response.data;
+        setLogs(data);
+        setTotalLogs(response.data.totalItems || data.length);
         setError(false);
       } catch (error) {
         console.error("Erro ao buscar logs", error);
@@ -143,7 +148,7 @@ export const AdminLogsPage: React.FC = () => {
         </div>
         <div className="bg-slate-800 text-white px-5 py-2.5 rounded-lg font-semibold shadow-lg flex items-center gap-2">
           <Database className="w-5 h-5" />
-          {logs.length} Registros Totais
+          {totalLogs} Registros Totais
         </div>
       </div>
 

@@ -7,8 +7,13 @@ export interface ApiRequestConfig extends AxiosRequestConfig {
   showFeedback?: boolean;
 }
 
+const apiBaseUrl = String(import.meta.env.VITE_API_URL || "").replace(
+  /\/+$/,
+  "",
+);
+
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL + "/api",
+  baseURL: apiBaseUrl ? `${apiBaseUrl}/api` : "/api",
   headers: {
     "Content-Type": "application/json",
   },

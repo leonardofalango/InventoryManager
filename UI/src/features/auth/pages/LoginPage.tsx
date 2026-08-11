@@ -42,13 +42,13 @@ export function LoginPage() {
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
 
     if (newPassword !== repeatNewPassword) {
       showFeedback("As senhas não são iguais", "error");
       return;
     }
 
+    setLoading(true);
     try {
       const response = await api.post("/auth/change-password", {
         email,
