@@ -12,6 +12,12 @@ const apiBaseUrl = String(import.meta.env.VITE_API_URL || "").replace(
   "",
 );
 
+const redirectToLogin = () => {
+  if (window.location.hash !== "#/login") {
+    window.location.hash = "#/login";
+  }
+};
+
 export const api = axios.create({
   baseURL: apiBaseUrl ? `${apiBaseUrl}/api` : "/api",
   headers: {
@@ -45,9 +51,10 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem("token");
       useAuthStore.getState().logout();
-      window.setTimeout(() => {
-        window.location.href = "/login";
-      }, 1500);
+
+      if (!config?.url?.includes("/auth/login")) {
+        window.setTimeout(redirectToLogin, 1500);
+      }
     }
 
     if (config?.showFeedback !== false) {
