@@ -14,6 +14,7 @@ import { RecoveryPage } from "../features/auth/pages/RecoveryPage";
 import { ChangePasswordPage } from "../features/auth/pages/ChangePassword";
 import { LabelManagementPage } from "../features/label/pages/LabelManagementPage";
 import { AdminLogsPage } from "../features/dashboard/pages/Logs";
+import { EanManagementPage } from "../features/ean/pages/EanManagementPage";
 
 const RoleProtectedRoute = ({
   children,
@@ -75,6 +76,14 @@ export const router = createHashRouter([
         element: (
           <RoleProtectedRoute allowedRoles={["ADMIN", "MANAGER"]}>
             <LabelManagementPage />
+          </RoleProtectedRoute>
+        ),
+      },
+      {
+        path: "/ean-management",
+        element: (
+          <RoleProtectedRoute allowedRoles={["ADMIN", "MANAGER"]}>
+            <EanManagementPage />
           </RoleProtectedRoute>
         ),
       },

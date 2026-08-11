@@ -347,6 +347,13 @@ public class InventorySessionController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Ean))
             return "Informe o EAN lido.";
 
+        var normalizedEan = request.Ean.Trim();
+        if (normalizedEan.Length < 8 || normalizedEan.Length > 14)
+            return "EAN inválido. Use um código entre 8 e 14 dígitos.";
+
+        if (!normalizedEan.All(char.IsDigit))
+            return "EAN inválido. O código deve conter apenas números.";
+
         if (request.ProductLocationId == Guid.Empty)
             return "Informe uma localizacao valida antes de registrar a leitura.";
 

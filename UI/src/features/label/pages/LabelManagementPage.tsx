@@ -16,6 +16,8 @@ interface Label {
   id: string;
   barcode: string;
   inventorySessionId: string;
+  readCount?: number;
+  totalQuantity?: number;
 }
 
 export function LabelManagementPage() {
@@ -41,10 +43,12 @@ export function LabelManagementPage() {
   }>({ isOpen: false, title: "", message: "", onConfirm: () => {} });
 
   const confirmDelete = (label: Label) => {
+    const readCount = label.readCount ?? 0;
+    const totalQuantity = label.totalQuantity ?? 0;
     setConfirmConfig({
       isOpen: true,
       title: "Excluir Etiqueta",
-      message: `Tem certeza de que deseja excluir a etiqueta ${label.barcode}? Esta ação não pode ser desfeita.`,
+      message: `Tem certeza de que deseja excluir a etiqueta ${label.barcode}? Isso removerá ${readCount} leitura(s) e ${totalQuantity} unidade(s) vinculadas a esta localidade.`,
       isDanger: true,
       onConfirm: () => handleDeleteLabel(label.id),
     });
@@ -63,7 +67,6 @@ export function LabelManagementPage() {
         );
         setLabels(response.data);
       } catch (error) {
-        showFeedback("Erro ao carregar etiquetas", "error");
       } finally {
         setLoadingLabels(false);
       }
@@ -91,7 +94,6 @@ export function LabelManagementPage() {
       );
       setLabels(response.data);
     } catch (error) {
-      showFeedback("Erro ao vincular etiquetas.", "error");
     } finally {
       setLoading(false);
     }
@@ -116,7 +118,6 @@ export function LabelManagementPage() {
       );
       setLabels(response.data);
     } catch (error) {
-      showFeedback("Erro ao adicionar etiqueta.", "error");
     } finally {
       setLoading(false);
     }
@@ -128,7 +129,6 @@ export function LabelManagementPage() {
       showFeedback("Etiqueta removida!", "success");
       setLabels(labels.filter((l) => l.id !== id));
     } catch (error) {
-      showFeedback("Erro ao remover etiqueta.", "error");
     }
   };
 
@@ -251,6 +251,9 @@ export function LabelManagementPage() {
                         <th className="px-4 py-3 font-medium">
                           Código de Barras
                         </th>
+                        <th className="px-4 py-3 font-medium text-center">
+                          Leituras
+                        </th>
                         <th className="px-4 py-3 font-medium w-24 text-center">
                           Ações
                         </th>
@@ -280,6 +283,10 @@ export function LabelManagementPage() {
                           <tr key={label.id} className="hover:bg-gray-700/50">
                             <td className="px-4 py-3 font-medium text-textAccent font-mono">
                               {label.barcode}
+                            </td>
+                            <td className="px-4 py-3 text-center text-gray-300">
+                              {label.readCount ?? 0}
+                              {label.totalQuantity ? ` · ${label.totalQuantity}` : ""}
                             </td>
                             <td className="px-4 py-3 flex justify-center">
                               <button

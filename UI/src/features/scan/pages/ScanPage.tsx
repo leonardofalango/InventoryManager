@@ -37,6 +37,8 @@ import {
   saveCachedLocation,
 } from "../services/scanCache";
 
+import { getEanValidationMessage } from "../../../lib/ean";
+
 type ScannedItemStatus = "synced" | "queued" | "error";
 
 interface ScannedItem {
@@ -78,6 +80,7 @@ export function ScanPage() {
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [showManualInput, setShowManualInput] = useState(false);
   const [isProcessingScan, setIsProcessingScan] = useState(false);
+  const scanQueueRef = useRef<string[]>([]);
   const [isSyncingOffline, setIsSyncingOffline] = useState(false);
   const [offlineQueueCount, setOfflineQueueCount] = useState(0);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -277,66 +280,72 @@ export function ScanPage() {
       const cleanCode = code.trim();
       if (!cleanCode || !activeSession) return;
 
+      if (!isLocationLocked) {
+        try {
+          const location = await api.get(
+            `/productlocation/${activeSession.id}/${cleanCode}`,
+          );
+
+          setLocationId(location.data.id);
+          setLocationName(cleanCode);
+          setIsLocationLocked(true);
+          saveCachedLocation(activeSession.id, {
+            id: location.data.id,
+            barcode: cleanCode,
+          });
+          vibrate(100);
+          showFeedback(`Localizacao ${cleanCode} confirmada`, "success");
+        } catch (error) {
+          if (isNetworkError(error)) {
+            const cachedLocation = getCachedLocation(
+              activeSession.id,
+              cleanCode,
+            );
+
+            if (cachedLocation) {
+              setLocationId(cachedLocation.id);
+              setLocationName(cachedLocation.barcode);
+              setIsLocationLocked(true);
+              vibrate(100);
+              showFeedback(
+                `Localizacao ${cachedLocation.barcode} carregada do cache offline.`,
+                "info",
+              );
+              return;
+            }
+          }
+
+          vibrate([200, 100, 200]);
+        }
+
+        return;
+      }
+
+      if (!locationId) {
+        showFeedback(
+          "Bipe a localizacao novamente antes de contar itens.",
+          "error",
+        );
+        return;
+      }
+
       if (isProcessingScan) {
         showFeedback("Aguarde a leitura atual terminar.", "info");
         return;
       }
 
       setIsProcessingScan(true);
-
       try {
-        if (!isLocationLocked) {
-          try {
-            const location = await api.get(
-              `/productlocation/${activeSession.id}/${cleanCode}`,
-            );
-
-            setLocationId(location.data.id);
-            setLocationName(cleanCode);
-            setIsLocationLocked(true);
-            saveCachedLocation(activeSession.id, {
-              id: location.data.id,
-              barcode: cleanCode,
-            });
-            vibrate(100);
-            showFeedback(`Localizacao ${cleanCode} confirmada`, "success");
-          } catch (error) {
-            if (isNetworkError(error)) {
-              const cachedLocation = getCachedLocation(
-                activeSession.id,
-                cleanCode,
-              );
-
-              if (cachedLocation) {
-                setLocationId(cachedLocation.id);
-                setLocationName(cachedLocation.barcode);
-                setIsLocationLocked(true);
-                vibrate(100);
-                showFeedback(
-                  `Localizacao ${cachedLocation.barcode} carregada do cache offline.`,
-                  "info",
-                );
-                return;
-              }
-            }
-
-            vibrate([200, 100, 200]);
-          }
-          return;
-        }
-
-        if (!locationId) {
-          showFeedback(
-            "Bipe a localizacao novamente antes de contar itens.",
-            "error",
-          );
-          return;
-        }
-
         const qtyToSubmit = scanQuantity;
         const countedAt = new Date().toISOString();
         const clientCountId = createOfflineCountId();
         setScanQuantity(1);
+
+        const validationMessage = getEanValidationMessage(cleanCode);
+        if (validationMessage) {
+          showFeedback(validationMessage, "error");
+          return;
+        }
 
         try {
           const response = await api.post(
@@ -426,14 +435,51 @@ export function ScanPage() {
     ],
   );
 
-  const handleHiddenInput = (e: React.FormEvent<HTMLFormElement>) => {
+  const processQueuedBarcodes = useCallback(async () => {
+    if (isProcessingScan) return;
+    if (scanQueueRef.current.length === 0) return;
+
+    setIsProcessingScan(true);
+    try {
+      while (scanQueueRef.current.length > 0) {
+        const nextCode = scanQueueRef.current.shift()!;
+        await processBarcode(nextCode);
+      }
+    } finally {
+      setIsProcessingScan(false);
+    }
+  }, [isProcessingScan, processBarcode]);
+
+  const enqueueBarcode = useCallback(
+    async (code: string) => {
+      scanQueueRef.current.push(code.trim());
+      await processQueuedBarcodes();
+    },
+    [processQueuedBarcodes],
+  );
+
+  const processMultiBarcodeInput = useCallback(
+    async (rawValue: string) => {
+      const codes = rawValue
+        .split(/\s+/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+
+      for (const code of codes) {
+        await enqueueBarcode(code);
+      }
+    },
+    [enqueueBarcode],
+  );
+
+  const handleHiddenInput = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const val = (
-      e.currentTarget.elements.namedItem("barcode") as HTMLInputElement
-    ).value;
-    processBarcode(val);
-    (e.currentTarget.elements.namedItem("barcode") as HTMLInputElement).value =
-      "";
+    const input = e.currentTarget.elements.namedItem(
+      "barcode",
+    ) as HTMLInputElement;
+    const val = input.value;
+    input.value = "";
+    await processMultiBarcodeInput(val);
   };
 
   if (isLoadingSession)
@@ -826,7 +872,7 @@ export function ScanPage() {
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
-                await processBarcode(manualInput);
+                await processMultiBarcodeInput(manualInput);
                 setManualInput("");
                 setShowManualInput(false);
               }}

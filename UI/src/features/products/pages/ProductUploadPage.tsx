@@ -23,7 +23,7 @@ import { PreviewTable } from "../components/PreviewTable";
 import { ConfirmModal } from "../../../components/common/ConfirmModal"; // <-- Importado
 import type { ProductCsvRow } from "../types/product-types";
 import type { Product } from "../../../types";
-import { getEanValidationMessage, isValidEan } from "../../../lib/ean";
+import { getEanValidationMessage } from "../../../lib/ean";
 
 export function ProductUploadPage() {
   const showFeedback = useFeedbackStore((state) => state.showFeedback);

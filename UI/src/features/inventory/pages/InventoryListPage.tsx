@@ -191,8 +191,7 @@ export function InventoryListPage() {
       await api.delete(`/inventorysession/${id}`);
       showFeedback("Inventário excluído com sucesso.", "success");
       fetchSessions();
-    } catch (error: any) {
-    }
+    } catch (error: any) {}
   };
 
   const confirmDelete = (
@@ -216,8 +215,7 @@ export function InventoryListPage() {
       await api.put(`/inventorysession/${id}/status`, { status: newStatus });
       showFeedback("Status do inventário atualizado.", "success");
       fetchSessions();
-    } catch (error: any) {
-    }
+    } catch (error: any) {}
   };
 
   const confirmStatusChange = (

@@ -122,7 +122,7 @@ export function TeamPage() {
       await api.delete(`/team/${id}`);
       fetchData();
     } catch (error: any) {
-      const msg = error.response?.data || "Erro ao excluir time.";
+      console.log(error);
     }
   };
 

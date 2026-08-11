@@ -59,10 +59,20 @@ public class ProductLocationController : ControllerBase
         var location = await _context.ProductLocations.Where(pl => pl.DeletedAt == null).FirstOrDefaultAsync(pl => pl.Id == id);
         if (location == null) return NotFound();
 
-        location.DeletedAt = DateTime.UtcNow;
+        var relatedCounts = await _context.InventoryCounts
+            .Where(c => c.ProductLocationId == id && c.DeletedAt == null)
+            .ToListAsync();
+
+        var now = DateTime.UtcNow;
+        foreach (var count in relatedCounts)
+        {
+            count.DeletedAt = now;
+        }
+
+        location.DeletedAt = now;
         await _context.SaveChangesAsync();
 
-        return NoContent();
+        return Ok(new { deletedCounts = relatedCounts.Count, deletedQuantity = relatedCounts.Sum(c => c.Quantity) });
     }
 
     [HttpGet("{inventorySessionId}/{barcode}")]
