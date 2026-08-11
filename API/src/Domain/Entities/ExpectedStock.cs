@@ -8,7 +8,7 @@ public class ExpectedStock : IAuditEntity
     public InventorySession? InventorySession { get; set; }
 
     public Guid ProductId { get; set; }
-    public required Product Product { get; set; }
+    public Product? Product { get; set; }
 
     public int ExpectedQuantity { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
