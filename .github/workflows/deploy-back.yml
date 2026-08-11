@@ -42,6 +42,11 @@ jobs:
 
             docker build -t inventory-api .
 
+            docker run --rm --name api-migrations \
+              --entrypoint /app/efbundle \
+              inventory-api \
+              --connection "${{ secrets.DB_CONNECTION_STRING }}"
+
             docker stop api-container || true
             docker rm api-container || true
 
