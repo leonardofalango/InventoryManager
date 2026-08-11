@@ -14,6 +14,7 @@ jobs:
       FRONTEND_ORIGIN: http://absoluta-log-s3-sandbox.s3-website-sa-east-1.amazonaws.com
       AWS_SES_REGION: sa-east-1
       AWS_SES_SENDER_EMAIL: support@absolutalog.com.br
+      BYPASS_EAN_VALIDATION: "true"
     steps:
       - uses: actions/checkout@v3
 
@@ -57,11 +58,12 @@ jobs:
           FRONTEND_ORIGIN: ${{ env.FRONTEND_ORIGIN }}
           AWS_SES_REGION: ${{ env.AWS_SES_REGION }}
           AWS_SES_SENDER_EMAIL: ${{ env.AWS_SES_SENDER_EMAIL }}
+          BYPASS_EAN_VALIDATION: ${{ env.BYPASS_EAN_VALIDATION }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
-          envs: DB_CONNECTION_STRING,JWT_KEY,JWT_AUDIENCE,JWT_ISSUER,FRONTEND_ORIGIN,AWS_SES_REGION,AWS_SES_SENDER_EMAIL
+          envs: DB_CONNECTION_STRING,JWT_KEY,JWT_AUDIENCE,JWT_ISSUER,FRONTEND_ORIGIN,AWS_SES_REGION,AWS_SES_SENDER_EMAIL,BYPASS_EAN_VALIDATION
           script: |
             cd /home/ubuntu/inventorymanager/API
 
@@ -80,6 +82,7 @@ jobs:
               -e "ConnectionStrings__DefaultConnection=$DB_CONNECTION_STRING" \
               -e "Cors__AllowedOrigins__0=$FRONTEND_ORIGIN" \
               -e "Database__RunMigrationsOnStartup=false" \
+              -e "Validation__BypassEanValidation=$BYPASS_EAN_VALIDATION" \
               -e "Jwt__Key=$JWT_KEY" \
               -e "Jwt__Audience=$JWT_AUDIENCE" \
               -e "Jwt__Issuer=$JWT_ISSUER" \

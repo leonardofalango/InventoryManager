@@ -13,8 +13,13 @@ namespace InventoryManager.API.Controllers;
 public class InventorySessionController : ControllerBase
 {
     private readonly InventoryDbContext _context;
+    private readonly bool _bypassEanValidation;
 
-    public InventorySessionController(InventoryDbContext context) => _context = context;
+    public InventorySessionController(InventoryDbContext context, IConfiguration configuration)
+    {
+        _context = context;
+        _bypassEanValidation = configuration.GetValue<bool>("Validation:BypassEanValidation");
+    }
 
     [HttpGet("{id}/dashboard")]
     [Authorize(Roles = "ADMIN,MANAGER,COUNTER")]
@@ -223,7 +228,7 @@ public class InventorySessionController : ControllerBase
             return Unauthorized(new { message = "Usuario nao identificado no token." });
         }
 
-        var validationMessage = ValidateCountRequest(request);
+        var validationMessage = ValidateCountRequest(request, _bypassEanValidation);
         if (validationMessage != null)
             return BadRequest(new { message = validationMessage });
 
@@ -262,7 +267,7 @@ public class InventorySessionController : ControllerBase
         {
             InventorySessionId = id,
             UserId = userId,
-            Ean = request.Ean,
+            Ean = request.Ean.Trim(),
             ProductLocationId = request.ProductLocationId,
             Quantity = request.Quantity,
             CountedAt = NormalizeCountedAt(request.CountedAt),
@@ -298,7 +303,7 @@ public class InventorySessionController : ControllerBase
             return BadRequest(new { message = "Envie no maximo 500 leituras por lote." });
 
         var validationErrors = request.Counts
-            .Select((count, index) => new { Index = index, Message = ValidateCountRequest(count) })
+            .Select((count, index) => new { Index = index, Message = ValidateCountRequest(count, _bypassEanValidation) })
             .Where(item => item.Message != null)
             .ToList();
 
@@ -349,7 +354,7 @@ public class InventorySessionController : ControllerBase
             {
                 InventorySessionId = id,
                 UserId = userId,
-                Ean = count.Ean,
+                Ean = count.Ean.Trim(),
                 ProductLocationId = count.ProductLocationId,
                 Quantity = count.Quantity,
                 CountedAt = NormalizeCountedAt(count.CountedAt),
@@ -384,18 +389,26 @@ public class InventorySessionController : ControllerBase
         return Guid.TryParse(userIdString, out userId);
     }
 
-    private static string? ValidateCountRequest(RegisterCountRequest request)
+    private static string? ValidateCountRequest(RegisterCountRequest request, bool bypassEanValidation)
     {
         if (string.IsNullOrWhiteSpace(request.Ean))
             return "Informe o EAN lido.";
 
         var normalizedEan = request.Ean.Trim();
+        if (bypassEanValidation)
+            return ValidateCountMetadata(request);
+
         if (normalizedEan.Length < 8 || normalizedEan.Length > 14)
             return "EAN inválido. Use um código entre 8 e 14 dígitos.";
 
         if (!normalizedEan.All(char.IsDigit))
             return "EAN inválido. O código deve conter apenas números.";
 
+        return ValidateCountMetadata(request);
+    }
+
+    private static string? ValidateCountMetadata(RegisterCountRequest request)
+    {
         if (request.ProductLocationId == Guid.Empty)
             return "Informe uma localizacao valida antes de registrar a leitura.";
 
