@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "UI/**"
+      - ".github/workflows/deploy-front.yml"
 
 jobs:
   deploy:

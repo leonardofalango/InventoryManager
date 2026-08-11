@@ -475,22 +475,22 @@ export function DashboardPage() {
                   </span>
                 </div>
               ) : (
-                <table className="min-w-full divide-y divide-gray-700 text-left">
+                <table className="w-full table-fixed divide-y divide-gray-700 text-left">
                   <thead className="bg-gray-900 sticky top-0">
                     <tr>
-                      <th className="px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                      <th className="w-[30%] px-3 py-3 sm:px-6 sm:py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
                         EAN
                       </th>
-                      <th className="px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                      <th className="w-[34%] px-3 py-3 sm:px-6 sm:py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
                         Descrição
                       </th>
-                      <th className="px-6 py-4 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                      <th className="w-[12%] px-2 py-3 sm:px-6 sm:py-4 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">
                         Esperado
                       </th>
-                      <th className="px-6 py-4 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                      <th className="w-[12%] px-2 py-3 sm:px-6 sm:py-4 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">
                         Contado
                       </th>
-                      <th className="px-6 py-4 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                      <th className="w-[12%] px-2 py-3 sm:px-6 sm:py-4 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">
                         Diferença
                       </th>
                     </tr>
@@ -511,20 +511,25 @@ export function DashboardPage() {
                           key={index}
                           className="hover:bg-gray-750 transition-colors"
                         >
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-textAccent">
-                            {item.ean}
+                          <td className="px-3 py-3 sm:px-6 sm:py-4 align-top text-sm font-medium text-textAccent">
+                            <span
+                              className="ean-two-line font-mono leading-5"
+                              title={item.ean}
+                            >
+                              {item.ean}
+                            </span>
                           </td>
-                          <td className="px-6 py-4 text-sm text-gray-300">
+                          <td className="px-3 py-3 sm:px-6 sm:py-4 align-top text-sm text-gray-300">
                             {item.description}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-400">
+                          <td className="px-2 py-3 sm:px-6 sm:py-4 whitespace-nowrap align-top text-xs sm:text-sm text-center text-gray-400">
                             {item.expectedQuantity}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-bold text-textAccent">
+                          <td className="px-2 py-3 sm:px-6 sm:py-4 whitespace-nowrap align-top text-xs sm:text-sm text-center font-bold text-textAccent">
                             {item.countedQuantity}
                           </td>
                           <td
-                            className={`px-6 py-4 whitespace-nowrap text-sm text-center font-bold ${
+                            className={`px-2 py-3 sm:px-6 sm:py-4 whitespace-nowrap align-top text-xs sm:text-sm text-center font-bold ${
                               item.difference < 0
                                 ? "text-red-400"
                                 : "text-green-400"

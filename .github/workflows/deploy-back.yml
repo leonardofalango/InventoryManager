@@ -6,12 +6,14 @@ on:
       - main
     paths:
       - "API/**"
+      - ".github/workflows/deploy-back.yml"
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
       FRONTEND_ORIGIN: http://absoluta-log-s3-sandbox.s3.sa-east-1.amazonaws.com
+      COLLECTOR_ORIGIN: http://localhost
       AWS_SES_REGION: sa-east-1
       AWS_SES_SENDER_EMAIL: support@absolutalog.com.br
       BYPASS_EAN_VALIDATION: "true"
@@ -56,6 +58,7 @@ jobs:
           JWT_AUDIENCE: ${{ secrets.JWT_AUDIENCE }}
           JWT_ISSUER: ${{ secrets.JWT_ISSUER }}
           FRONTEND_ORIGIN: ${{ env.FRONTEND_ORIGIN }}
+          COLLECTOR_ORIGIN: ${{ env.COLLECTOR_ORIGIN }}
           AWS_SES_REGION: ${{ env.AWS_SES_REGION }}
           AWS_SES_SENDER_EMAIL: ${{ env.AWS_SES_SENDER_EMAIL }}
           BYPASS_EAN_VALIDATION: ${{ env.BYPASS_EAN_VALIDATION }}
@@ -64,7 +67,7 @@ jobs:
           username: ubuntu
           command_timeout: 30m
           key: ${{ secrets.EC2_SSH_KEY }}
-          envs: DB_CONNECTION_STRING,JWT_KEY,JWT_AUDIENCE,JWT_ISSUER,FRONTEND_ORIGIN,AWS_SES_REGION,AWS_SES_SENDER_EMAIL,BYPASS_EAN_VALIDATION
+          envs: DB_CONNECTION_STRING,JWT_KEY,JWT_AUDIENCE,JWT_ISSUER,FRONTEND_ORIGIN,COLLECTOR_ORIGIN,AWS_SES_REGION,AWS_SES_SENDER_EMAIL,BYPASS_EAN_VALIDATION
           script: |
             set -e
             cd /home/ubuntu/inventorymanager/API
@@ -83,6 +86,7 @@ jobs:
               -e "ASPNETCORE_ENVIRONMENT=Production" \
               -e "ConnectionStrings__DefaultConnection=$DB_CONNECTION_STRING" \
               -e "Cors__AllowedOrigins__0=$FRONTEND_ORIGIN" \
+              -e "Cors__AllowedOrigins__1=$COLLECTOR_ORIGIN" \
               -e "Database__RunMigrationsOnStartup=false" \
               -e "Validation__BypassEanValidation=$BYPASS_EAN_VALIDATION" \
               -e "Jwt__Key=$JWT_KEY" \
