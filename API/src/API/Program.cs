@@ -120,7 +120,6 @@ if (app.Environment.IsDevelopment())
 
 app.UseResponseCompression();
 app.UseCors("AllowApp");
-
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
