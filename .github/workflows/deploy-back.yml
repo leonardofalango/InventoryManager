@@ -34,7 +34,6 @@ jobs:
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
-          command_timeout: 30m
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
@@ -63,9 +62,11 @@ jobs:
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
+          command_timeout: 30m
           key: ${{ secrets.EC2_SSH_KEY }}
           envs: DB_CONNECTION_STRING,JWT_KEY,JWT_AUDIENCE,JWT_ISSUER,FRONTEND_ORIGIN,AWS_SES_REGION,AWS_SES_SENDER_EMAIL,BYPASS_EAN_VALIDATION
           script: |
+            set -e
             cd /home/ubuntu/inventorymanager/API
 
             docker build -t inventory-api .
