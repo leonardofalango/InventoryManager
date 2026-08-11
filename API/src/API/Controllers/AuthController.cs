@@ -27,8 +27,10 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
+        var email = request.Email.Trim().ToLowerInvariant();
         var user = await _context.Users
-            .FirstOrDefaultAsync(u => u.Email.ToLower() == request.Email.ToLower());
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Email == email && u.DeletedAt == null);
 
         if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
         {
@@ -62,8 +64,9 @@ public class AuthController : ControllerBase
     [HttpPost("recovery")]
     public async Task<IActionResult> Recovery([FromBody] RecoveryRequest request)
     {
+        var email = request.Email.Trim().ToLowerInvariant();
         var user = await _context.Users
-            .FirstOrDefaultAsync(u => u.Email.ToLower() == request.Email.ToLower());
+            .FirstOrDefaultAsync(u => u.Email == email && u.DeletedAt == null);
 
         if (user == null)
             return NotFound(new { message = "Usuário não encontrado" });
@@ -73,8 +76,6 @@ public class AuthController : ControllerBase
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(tempPassword);
         user.isRecovery = true;
         await _context.SaveChangesAsync();
-
-        Console.WriteLine("tempPassword: " + tempPassword);
 
         var subject = "Recuperação de senha - Absolutalog Inventory Manager";
         var body = $@"
@@ -93,8 +94,9 @@ public class AuthController : ControllerBase
     [HttpPost("change-password")]
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
     {
+        var email = request.Email.Trim().ToLowerInvariant();
         var user = await _context.Users
-            .FirstOrDefaultAsync(u => u.Email.ToLower() == request.Email.ToLower());
+            .FirstOrDefaultAsync(u => u.Email == email && u.DeletedAt == null);
 
         if (user == null)
             return NotFound(new { message = "Usuário não encontrado" });

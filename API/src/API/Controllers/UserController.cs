@@ -24,6 +24,7 @@ public class UserController : ControllerBase
     public async Task<ActionResult<IEnumerable<User>>> GetUsers()
     {
         var users = await _context.Users
+            .AsNoTracking()
             .Where(u => u.DeletedAt == null)
             .Select(u => new
             {
@@ -43,7 +44,8 @@ public class UserController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<User>> CreateUser([FromBody] CreateUserRequest request)
     {
-        if (await _context.Users.AnyAsync(u => u.Email == request.Email))
+        var email = request.Email.Trim().ToLowerInvariant();
+        if (await _context.Users.AnyAsync(u => u.Email == email))
         {
             return BadRequest("E-mail já cadastrado.");
         }
@@ -56,13 +58,13 @@ public class UserController : ControllerBase
         else
         {
             newPass = Guid.NewGuid().ToString().Substring(0, 8);
-            await _mailService.SendEmailAsync(request.Email, "Bem-vindo ao sistema", $"Sua senha temporária é: {newPass}");
+            await _mailService.SendEmailAsync(email, "Bem-vindo ao sistema", $"Sua senha temporária é: {newPass}");
         }
 
         var user = new User
         {
             Name = request.Name,
-            Email = request.Email.ToLower(),
+            Email = email,
             Role = request.Role,
             TeamId = request.TeamId,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPass),
@@ -73,8 +75,6 @@ public class UserController : ControllerBase
 
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
-
-        Console.WriteLine($"Usuário criado: {user.Email} com senha temporária: {newPass}");
         return CreatedAtAction(nameof(GetUsers), new { id = user.Id }, user);
     }
 
