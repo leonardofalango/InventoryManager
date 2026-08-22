@@ -146,12 +146,7 @@ public class InventorySessionController : ControllerBase
 
         int totalLocations = activeLocations.Count;
 
-        int totalLocationsCounted = await _context.InventoryCounts
-            .AsNoTracking()
-            .Where(c => c.InventorySessionId == id && c.DeletedAt == null && c.ProductLocationId != null)
-            .Select(c => c.ProductLocationId)
-            .Distinct()
-            .CountAsync();
+        int totalLocationsCounted = countsByLocation.Count;
 
         return Ok(new
         {
@@ -200,21 +195,21 @@ public class InventorySessionController : ControllerBase
 
         if (session == null) return NotFound();
 
-        var totalCounts = await _context.InventoryCounts
-            .AsNoTracking()
-            .CountAsync(c => c.InventorySessionId == id && c.DeletedAt == null);
-
-        var uniqueProductsCounted = await _context.InventoryCounts
+        var countSummary = await _context.InventoryCounts
             .AsNoTracking()
             .Where(c => c.InventorySessionId == id && c.DeletedAt == null)
-            .Select(c => c.Ean)
-            .Distinct()
-            .CountAsync();
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                TotalCounts = g.Count(),
+                UniqueProductsCounted = g.Select(c => c.Ean).Distinct().Count()
+            })
+            .FirstOrDefaultAsync();
 
         return Ok(new
         {
-            totalCounts,
-            uniqueProducts = uniqueProductsCounted,
+            totalCounts = countSummary?.TotalCounts ?? 0,
+            uniqueProducts = countSummary?.UniqueProductsCounted ?? 0,
             status = session.Status
         });
     }
@@ -236,7 +231,14 @@ public class InventorySessionController : ControllerBase
         {
             var existingCount = await _context.InventoryCounts
                 .AsNoTracking()
-                .FirstOrDefaultAsync(c => c.ClientCountId == request.ClientCountId.Value);
+                .Where(c => c.ClientCountId == request.ClientCountId.Value)
+                .Select(c => new
+                {
+                    c.Id,
+                    c.Ean,
+                    c.CountedAt
+                })
+                .FirstOrDefaultAsync();
 
             if (existingCount != null)
             {
@@ -395,14 +397,17 @@ public class InventorySessionController : ControllerBase
             return "Informe o EAN lido.";
 
         var normalizedEan = request.Ean.Trim();
-        if (bypassEanValidation)
-            return ValidateCountMetadata(request);
-
-        if (normalizedEan.Length < 8 || normalizedEan.Length > 14)
-            return "EAN inválido. Use um código entre 8 e 14 dígitos.";
+        if (normalizedEan.Length > 16)
+            return "EAN invalido. Use um codigo de ate 16 digitos.";
 
         if (!normalizedEan.All(char.IsDigit))
             return "EAN inválido. O código deve conter apenas números.";
+
+        if (bypassEanValidation)
+            return ValidateCountMetadata(request);
+
+        if (normalizedEan.Length < 8)
+            return "EAN invalido. Use um codigo entre 8 e 16 digitos.";
 
         return ValidateCountMetadata(request);
     }
@@ -440,35 +445,47 @@ public class InventorySessionController : ControllerBase
             return Unauthorized(new { message = "Usuário inválido." });
         }
 
-        var user = await _context.Users.FindAsync(userId);
-        if (user == null || user.TeamId == null)
+        var result = await _context.Users
+            .AsNoTracking()
+            .Where(u => u.Id == userId)
+            .Select(u => new
+            {
+                u.TeamId,
+                ActiveSession = _context.InventorySessions
+                    .AsNoTracking()
+                    .Where(s =>
+                        s.DeletedAt == null &&
+                        u.TeamId != null &&
+                        s.TeamId == u.TeamId &&
+                        (u.Role == "COUNTER"
+                            ? s.Status == InventoryStatus.InProgress
+                            : s.Status == InventoryStatus.Open || s.Status == InventoryStatus.InProgress))
+                    .OrderByDescending(s => s.StartDate)
+                    .Select(s => new
+                    {
+                        s.Id,
+                        s.ClientName,
+                        s.Status
+                    })
+                    .FirstOrDefault()
+            })
+            .FirstOrDefaultAsync();
+
+        if (result == null || result.TeamId == null)
         {
             return NotFound(new { message = "Você não está vinculado a nenhuma equipe. Contate o gestor." });
         }
 
-        var activeSession = await _context.InventorySessions
-            .Where(
-                s => s.TeamId == user.TeamId &&
-                (
-                user.Role == "COUNTER"
-                    ? s.Status == InventoryStatus.InProgress
-                    : s.Status == InventoryStatus.Open ||
-                    s.Status == InventoryStatus.InProgress
-                )
-            )
-            .OrderByDescending(s => s.StartDate)
-            .FirstOrDefaultAsync();
-
-        if (activeSession == null)
+        if (result.ActiveSession == null)
         {
             return NotFound(new { message = "Nenhum inventário em andamento para a sua equipe no momento." });
         }
 
         return Ok(new
         {
-            id = activeSession.Id,
-            clientName = activeSession.ClientName,
-            status = activeSession.Status
+            id = result.ActiveSession.Id,
+            clientName = result.ActiveSession.ClientName,
+            status = result.ActiveSession.Status
         });
     }
 
@@ -486,6 +503,7 @@ public class InventorySessionController : ControllerBase
 
         var query = _context.InventorySessions
             .AsNoTracking()
+            .Where(s => s.DeletedAt == null)
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(search))
@@ -513,8 +531,14 @@ public class InventorySessionController : ControllerBase
                 s.StartDate,
                 s.EndDate,
                 s.TeamId,
-                TotalItemsCounted = s.Counts.Sum(c => c.Quantity),
-                UniqueItemsCounted = s.Counts.Select(c => c.Ean).Distinct().Count()
+                TotalItemsCounted = s.Counts
+                    .Where(c => c.DeletedAt == null)
+                    .Sum(c => c.Quantity),
+                UniqueItemsCounted = s.Counts
+                    .Where(c => c.DeletedAt == null)
+                    .Select(c => c.Ean)
+                    .Distinct()
+                    .Count()
             })
             .ToListAsync();
 
@@ -571,60 +595,108 @@ public class InventorySessionController : ControllerBase
     [Authorize(Roles = "ADMIN,MANAGER")]
     public async Task<ActionResult<IEnumerable<DiscrepancyItemDto>>> GetDiscrepancies(Guid sessionId)
     {
-        var productsInfo = await _context.Products
-            .AsNoTracking()
-            .Where(p => p.InventorySessionId == sessionId && p.DeletedAt == null)
-            .Select(p => new { p.Ean, p.Name })
-            .ToDictionaryAsync(p => p.Ean, p => p.Name);
-
-        var expectedStocks = await _context.ExpectedStocks
+        var expectedRows = await _context.ExpectedStocks
             .AsNoTracking()
             .Where(e => e.InventorySessionId == sessionId && e.DeletedAt == null && e.Product.DeletedAt == null)
             .GroupBy(e => e.Product.Ean)
             .Select(g => new
             {
                 Ean = g.Key,
-                ExpectedQuantity = g.Sum(e => e.ExpectedQuantity)
+                ExpectedQuantity = g.Sum(e => e.ExpectedQuantity),
+                ProductName = g.Select(e => e.Product.Name).FirstOrDefault()
             })
-            .ToDictionaryAsync(e => e.Ean, e => e.ExpectedQuantity);
+            .ToListAsync();
 
-        var actualCounts = await _context.InventoryCounts
+        var expectedStocks = expectedRows.ToDictionary(e => e.Ean, e => e.ExpectedQuantity);
+        var productNames = expectedRows
+            .Where(e => !string.IsNullOrWhiteSpace(e.ProductName))
+            .ToDictionary(e => e.Ean, e => e.ProductName!);
+
+        var countedRows = await _context.InventoryCounts
             .AsNoTracking()
             .Where(c => c.InventorySessionId == sessionId && c.DeletedAt == null)
-            .GroupBy(c => c.Ean)
+            .Select(c => new
+            {
+                c.Ean,
+                c.Quantity,
+                ProductLocation = c.ProductLocation != null ? c.ProductLocation.Barcode : "N/A"
+            })
+            .GroupBy(c => new { c.Ean, c.ProductLocation })
             .Select(g => new
             {
-                Ean = g.Key,
+                g.Key.Ean,
+                g.Key.ProductLocation,
                 TotalCounted = g.Sum(x => x.Quantity)
             })
-            .ToDictionaryAsync(c => c.Ean, c => c.TotalCounted);
+            .ToListAsync();
+
+        var actualCounts = countedRows
+            .GroupBy(c => c.Ean)
+            .ToDictionary(g => g.Key, g => g.Sum(c => c.TotalCounted));
+
+        var productLocationsByEan = countedRows
+            .GroupBy(c => c.Ean)
+            .ToDictionary(
+                g => g.Key,
+                g => string.Join(
+                    ", ",
+                    g.OrderBy(c => c.ProductLocation)
+                        .Select(c => $"{c.ProductLocation} ({c.TotalCounted})")
+                )
+            );
 
         var allEans = expectedStocks.Keys
             .Union(actualCounts.Keys)
-            .Distinct();
+            .Distinct()
+            .ToList();
 
-        var discrepancies = new List<DiscrepancyItemDto>();
-
-        foreach (var ean in allEans)
-        {
-            var expectedQty = expectedStocks.GetValueOrDefault(ean, 0);
-            var countedQty = actualCounts.GetValueOrDefault(ean, 0);
-
-            if (expectedQty != countedQty)
+        var discrepancyValues = allEans
+            .Select(ean => new
             {
-                var productName = productsInfo.GetValueOrDefault(ean, "Produto Não Cadastrado");
+                Ean = ean,
+                ExpectedQuantity = expectedStocks.GetValueOrDefault(ean, 0),
+                CountedQuantity = actualCounts.GetValueOrDefault(ean, 0)
+            })
+            .Where(item => item.ExpectedQuantity != item.CountedQuantity)
+            .ToList();
 
-                discrepancies.Add(new DiscrepancyItemDto
-                {
-                    Ean = ean,
-                    Description = productName,
-                    ExpectedQuantity = expectedQty,
-                    CountedQuantity = countedQty
-                });
+        var missingProductNameEans = discrepancyValues
+            .Select(item => item.Ean)
+            .Where(ean => !productNames.ContainsKey(ean))
+            .ToList();
+
+        if (missingProductNameEans.Count > 0)
+        {
+            var productNameRows = await _context.Products
+                .AsNoTracking()
+                .Where(p =>
+                    p.InventorySessionId == sessionId &&
+                    p.DeletedAt == null &&
+                    missingProductNameEans.Contains(p.Ean))
+                .Select(p => new { p.Ean, p.Name })
+                .ToListAsync();
+
+            foreach (var productGroup in productNameRows.GroupBy(p => p.Ean))
+            {
+                productNames[productGroup.Key] = productGroup
+                    .Select(p => p.Name)
+                    .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name)) ?? "Produto Não Cadastrado";
             }
         }
 
-        return Ok(discrepancies.OrderByDescending(d => Math.Abs(d.Difference)));
+        var discrepancies = discrepancyValues
+            .Select(item => new DiscrepancyItemDto
+            {
+                Ean = item.Ean,
+                Description = productNames.GetValueOrDefault(item.Ean, "Produto Não Cadastrado"),
+                ProductLocations = productLocationsByEan.GetValueOrDefault(item.Ean, "N/A"),
+                ExpectedQuantity = item.ExpectedQuantity,
+                CountedQuantity = item.CountedQuantity
+            })
+            .OrderByDescending(d => Math.Abs(d.Difference))
+            .ToList();
+
+        return Ok(discrepancies);
     }
 
     [HttpDelete("{id:guid}")]
@@ -702,6 +774,7 @@ public class DiscrepancyItemDto
 {
     public string? Ean { get; set; }
     public string? Description { get; set; }
+    public string ProductLocations { get; set; } = "N/A";
     public int ExpectedQuantity { get; set; }
     public int CountedQuantity { get; set; }
     public int Difference => CountedQuantity - ExpectedQuantity;

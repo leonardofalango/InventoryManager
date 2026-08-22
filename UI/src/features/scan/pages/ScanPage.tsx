@@ -64,6 +64,55 @@ const vibrate = (pattern: number | number[]) => {
   }
 };
 
+const playErrorSound = () => {
+  const AudioContextConstructor =
+    window.AudioContext ??
+    (window as typeof window & { webkitAudioContext?: typeof AudioContext })
+      .webkitAudioContext;
+
+  if (!AudioContextConstructor) return;
+
+  try {
+    const audioContext = new AudioContextConstructor();
+    const startTime = audioContext.currentTime + 0.01;
+    const tones = [
+      { frequency: 260, offset: 0, duration: 0.12 },
+      { frequency: 150, offset: 0.14, duration: 0.24 },
+    ];
+
+    tones.forEach((tone) => {
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      const toneStart = startTime + tone.offset;
+      const toneEnd = toneStart + tone.duration;
+
+      oscillator.type = "square";
+      oscillator.frequency.setValueAtTime(tone.frequency, toneStart);
+      gain.gain.setValueAtTime(0.001, toneStart);
+      gain.gain.linearRampToValueAtTime(0.16, toneStart + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, toneEnd);
+
+      oscillator.connect(gain);
+      gain.connect(audioContext.destination);
+      oscillator.start(toneStart);
+      oscillator.stop(toneEnd);
+    });
+
+    void audioContext.resume().catch(() => {});
+    window.setTimeout(() => {
+      void audioContext.close();
+    }, 500);
+  } catch {}
+};
+
+const signalScanError = () => {
+  vibrate([300, 150, 300]);
+  playErrorSound();
+};
+
+const isInventoryLocationBarcode = (code: string) =>
+  code.trim().toUpperCase().startsWith("INV");
+
 export function ScanPage() {
   const showFeedback = useFeedbackStore((state) => state.showFeedback);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -73,6 +122,7 @@ export function ScanPage() {
   );
   const [isLoadingSession, setIsLoadingSession] = useState(true);
   const [sessionError, setSessionError] = useState<string | null>(null);
+  const [sessionRetryCountdown, setSessionRetryCountdown] = useState(5);
   const [locationName, setLocationName] = useState<string>("");
   const [locationId, setLocationId] = useState<string>("");
   const [isLocationLocked, setIsLocationLocked] = useState(false);
@@ -100,6 +150,58 @@ export function ScanPage() {
   const addScannedItem = useCallback((item: ScannedItem) => {
     setScannedItems((prev) => [item, ...prev.slice(0, 49)]);
   }, []);
+
+  const selectLocation = useCallback(
+    async (code: string) => {
+      if (!activeSession) return;
+
+      const locationCode = code.trim().toUpperCase();
+      if (!locationCode) return;
+
+      try {
+        const location = await api.get(
+          `/productlocation/${activeSession.id}/${encodeURIComponent(locationCode)}`,
+        );
+        const confirmedBarcode = location.data.barcode || locationCode;
+
+        setLocationId(location.data.id);
+        setLocationName(confirmedBarcode);
+        setIsLocationLocked(true);
+        setScannedItems([]);
+        setScanQuantity(1);
+        saveCachedLocation(activeSession.id, {
+          id: location.data.id,
+          barcode: confirmedBarcode,
+        });
+        vibrate(100);
+        showFeedback(`Localizacao ${confirmedBarcode} confirmada`, "success");
+      } catch (error) {
+        if (isNetworkError(error)) {
+          const cachedLocation = getCachedLocation(
+            activeSession.id,
+            locationCode,
+          );
+
+          if (cachedLocation) {
+            setLocationId(cachedLocation.id);
+            setLocationName(cachedLocation.barcode);
+            setIsLocationLocked(true);
+            setScannedItems([]);
+            setScanQuantity(1);
+            vibrate(100);
+            showFeedback(
+              `Localizacao ${cachedLocation.barcode} carregada do cache offline.`,
+              "info",
+            );
+            return;
+          }
+        }
+
+        signalScanError();
+      }
+    },
+    [activeSession, showFeedback],
+  );
 
   const syncOfflineCounts = useCallback(
     async (silent = false) => {
@@ -275,62 +377,55 @@ export function ScanPage() {
     fetchActiveSession();
   }, [fetchActiveSession]);
 
+  useEffect(() => {
+    if (isLoadingSession || activeSession) return;
+
+    setSessionRetryCountdown(5);
+
+    const countdownInterval = window.setInterval(() => {
+      setSessionRetryCountdown((current) => (current <= 1 ? 5 : current - 1));
+    }, 1000);
+
+    const retryInterval = window.setInterval(() => {
+      void fetchActiveSession();
+    }, 5000);
+
+    return () => {
+      window.clearInterval(countdownInterval);
+      window.clearInterval(retryInterval);
+    };
+  }, [activeSession, fetchActiveSession, isLoadingSession]);
+
   const processBarcode = useCallback(
     async (code: string) => {
       const cleanCode = code.trim();
       if (!cleanCode || !activeSession) return;
 
-      if (!isLocationLocked) {
-        try {
-          const location = await api.get(
-            `/productlocation/${activeSession.id}/${cleanCode}`,
-          );
-
-          setLocationId(location.data.id);
-          setLocationName(cleanCode);
-          setIsLocationLocked(true);
-          saveCachedLocation(activeSession.id, {
-            id: location.data.id,
-            barcode: cleanCode,
-          });
-          vibrate(100);
-          showFeedback(`Localizacao ${cleanCode} confirmada`, "success");
-        } catch (error) {
-          if (isNetworkError(error)) {
-            const cachedLocation = getCachedLocation(
-              activeSession.id,
-              cleanCode,
-            );
-
-            if (cachedLocation) {
-              setLocationId(cachedLocation.id);
-              setLocationName(cachedLocation.barcode);
-              setIsLocationLocked(true);
-              vibrate(100);
-              showFeedback(
-                `Localizacao ${cachedLocation.barcode} carregada do cache offline.`,
-                "info",
-              );
-              return;
-            }
-          }
-
-          vibrate([200, 100, 200]);
-        }
-
-        return;
-      }
-
-      if (!locationId) {
-        showFeedback(
-          "Bipe a localizacao novamente antes de contar itens.",
-          "error",
-        );
-        return;
-      }
-
       if (isProcessingScan) {
         showFeedback("Aguarde a leitura atual terminar.", "info");
+        return;
+      }
+
+      if (isInventoryLocationBarcode(cleanCode)) {
+        setIsProcessingScan(true);
+        try {
+          await selectLocation(cleanCode);
+        } finally {
+          setIsProcessingScan(false);
+        }
+        return;
+      }
+
+      const validationMessage = getEanValidationMessage(cleanCode);
+      if (validationMessage) {
+        showFeedback(validationMessage, "error");
+        signalScanError();
+        return;
+      }
+
+      if (!isLocationLocked || !locationId) {
+        showFeedback("Bipe uma localizacao antes de contar itens.", "error");
+        signalScanError();
         return;
       }
 
@@ -340,12 +435,6 @@ export function ScanPage() {
         const countedAt = new Date().toISOString();
         const clientCountId = createOfflineCountId();
         setScanQuantity(1);
-
-        const validationMessage = getEanValidationMessage(cleanCode);
-        if (validationMessage) {
-          showFeedback(validationMessage, "error");
-          return;
-        }
 
         try {
           const response = await api.post(
@@ -415,7 +504,7 @@ export function ScanPage() {
             qty: qtyToSubmit,
             message: errorMessage,
           });
-          vibrate([300, 150, 300]);
+          signalScanError();
           fetchActiveSession();
         }
       } finally {
@@ -431,6 +520,7 @@ export function ScanPage() {
       locationId,
       refreshOfflineQueueCount,
       scanQuantity,
+      selectLocation,
       showFeedback,
     ],
   );
@@ -487,9 +577,8 @@ export function ScanPage() {
         scanner = new Html5Qrcode("reader");
         const cameras = await Html5Qrcode.getCameras();
         const preferredCamera =
-          cameras.find((camera) =>
-            camera.label.toLowerCase().includes("back"),
-          )?.id || cameras[0]?.id;
+          cameras.find((camera) => camera.label.toLowerCase().includes("back"))
+            ?.id || cameras[0]?.id;
 
         if (!preferredCamera) {
           showFeedback("Nenhuma camera disponivel neste dispositivo.", "error");
@@ -563,6 +652,9 @@ export function ScanPage() {
         </h2>
         <p className="text-gray-500 text-sm md:text-base">
           {sessionError || "Nenhum inventario ativo no momento."}
+        </p>
+        <p className="text-gray-600 text-xs md:text-sm">
+          Nova verificacao automatica em {sessionRetryCountdown}s.
         </p>
         <button
           onClick={fetchActiveSession}

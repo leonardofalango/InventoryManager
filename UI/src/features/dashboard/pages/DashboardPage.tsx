@@ -38,6 +38,13 @@ const getStatusConfig = (status?: number) => {
   }
 };
 
+const escapeCsvValue = (value: unknown) => {
+  const safeValue = String(value ?? "");
+  return /[",\n\r]/.test(safeValue)
+    ? `"${safeValue.replace(/"/g, '""')}"`
+    : safeValue;
+};
+
 export function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -147,15 +154,25 @@ export function DashboardPage() {
     items: DiscrepancyItem[],
     sessionName: string,
   ) => {
-    const headers = ["EAN", "Descrição", "Esperado", "Contado", "Diferença"];
+    const headers = [
+      "EAN",
+      "Descrição",
+      "Localização",
+      "Esperado",
+      "Contado",
+      "Diferença",
+    ];
     const rows = items.map((item) => [
       item.ean,
       item.description,
+      item.productLocations || "N/A",
       item.expectedQuantity,
       item.countedQuantity,
       item.difference,
     ]);
-    const csvContent = [headers, ...rows].map((e) => e.join(",")).join("\n");
+    const csvContent = [headers, ...rows]
+      .map((row) => row.map(escapeCsvValue).join(","))
+      .join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -478,19 +495,22 @@ export function DashboardPage() {
                 <table className="w-full table-fixed divide-y divide-gray-700 text-left">
                   <thead className="bg-gray-900 sticky top-0">
                     <tr>
-                      <th className="w-[30%] px-3 py-3 sm:px-6 sm:py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                      <th className="w-[22%] px-3 py-3 sm:px-6 sm:py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
                         EAN
                       </th>
-                      <th className="w-[34%] px-3 py-3 sm:px-6 sm:py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                      <th className="w-[28%] px-3 py-3 sm:px-6 sm:py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
                         Descrição
                       </th>
-                      <th className="w-[12%] px-2 py-3 sm:px-6 sm:py-4 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                      <th className="w-[20%] px-3 py-3 sm:px-6 sm:py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                        Localização
+                      </th>
+                      <th className="w-[10%] px-2 py-3 sm:px-6 sm:py-4 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">
                         Esperado
                       </th>
-                      <th className="w-[12%] px-2 py-3 sm:px-6 sm:py-4 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                      <th className="w-[10%] px-2 py-3 sm:px-6 sm:py-4 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">
                         Contado
                       </th>
-                      <th className="w-[12%] px-2 py-3 sm:px-6 sm:py-4 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                      <th className="w-[10%] px-2 py-3 sm:px-6 sm:py-4 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">
                         Diferença
                       </th>
                     </tr>
@@ -499,7 +519,7 @@ export function DashboardPage() {
                     {discrepancies.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={5}
+                          colSpan={6}
                           className="px-6 py-8 text-center text-sm text-gray-500"
                         >
                           Nenhuma divergência encontrada nesta sessão.
@@ -521,6 +541,11 @@ export function DashboardPage() {
                           </td>
                           <td className="px-3 py-3 sm:px-6 sm:py-4 align-top text-sm text-gray-300">
                             {item.description}
+                          </td>
+                          <td className="px-3 py-3 sm:px-6 sm:py-4 align-top text-xs sm:text-sm text-gray-400 break-words">
+                            <span title={item.productLocations || "N/A"}>
+                              {item.productLocations || "N/A"}
+                            </span>
                           </td>
                           <td className="px-2 py-3 sm:px-6 sm:py-4 whitespace-nowrap align-top text-xs sm:text-sm text-center text-gray-400">
                             {item.expectedQuantity}

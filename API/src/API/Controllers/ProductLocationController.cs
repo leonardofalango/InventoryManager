@@ -110,16 +110,22 @@ public class ProductLocationController : ControllerBase
 
     [HttpGet("{inventorySessionId}/{barcode}")]
     [Authorize(Roles = "ADMIN,MANAGER,COUNTER")]
-    public async Task<ActionResult<ProductLocation>> GetProductLocationByBarcode(Guid inventorySessionId, string barcode)
+    public async Task<IActionResult> GetProductLocationByBarcode(Guid inventorySessionId, string barcode)
     {
         var location = await _context.ProductLocations
             .AsNoTracking()
             .Where(pl => pl.DeletedAt == null)
-            .FirstOrDefaultAsync(pl => pl.InventorySessionId == inventorySessionId && pl.Barcode == barcode);
+            .Where(pl => pl.InventorySessionId == inventorySessionId && pl.Barcode == barcode)
+            .Select(pl => new
+            {
+                pl.Id,
+                pl.Barcode
+            })
+            .FirstOrDefaultAsync();
         if (location == null)
             return NotFound(new { message = $"Localizacao {barcode} nao encontrada para este inventario." });
 
-        return location;
+        return Ok(location);
     }
 
     [HttpPost("create-locations/{count}")]
