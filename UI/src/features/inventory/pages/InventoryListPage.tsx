@@ -13,6 +13,7 @@ import {
   ChevronRight,
   Loader2,
   Trash2,
+  Download,
 } from "lucide-react";
 import { api } from "../../../lib/axios";
 import { useFeedbackStore } from "../../../store/feedbackStore";
@@ -76,6 +77,9 @@ export function InventoryListPage() {
     endDate: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [downloadingSessionId, setDownloadingSessionId] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -236,15 +240,51 @@ export function InventoryListPage() {
     });
   };
 
+  const sanitizeFileName = (value: string) =>
+    value.trim().replace(/[^a-zA-Z0-9_-]+/g, "_") || "inventario";
+
+  const handleDownloadCountsCsv = async (
+    e: React.MouseEvent,
+    session: InventorySessionModel,
+  ) => {
+    e.stopPropagation();
+
+    try {
+      setDownloadingSessionId(session.id);
+      const response = await api.get(
+        `/Export/counts-by-location/${session.id}`,
+        { responseType: "blob" },
+      );
+      const blob =
+        response.data instanceof Blob
+          ? response.data
+          : new Blob([response.data], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = `leituras_${sanitizeFileName(session.clientName)}.csv`;
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      showFeedback("CSV de leituras baixado.", "success");
+    } finally {
+      setDownloadingSessionId(null);
+    }
+  };
+
+  const getStatusNumber = (status: number | string) => {
+    if (typeof status !== "string") return status;
+
+    if (status === "Open") return 0;
+    if (status === "InProgress") return 1;
+    return 2;
+  };
+
   const getStatusInfo = (status: number | string) => {
-    const statusVal =
-      typeof status === "string"
-        ? status === "Open"
-          ? 0
-          : status === "InProgress"
-            ? 1
-            : 2
-        : status;
+    const statusVal = getStatusNumber(status);
 
     switch (statusVal) {
       case 1:
@@ -317,14 +357,7 @@ export function InventoryListPage() {
           ) : (
             sessions.map((session) => {
               const statusInfo = getStatusInfo(session.status);
-              const statusNum =
-                typeof session.status === "string"
-                  ? session.status === "Open"
-                    ? 0
-                    : session.status === "InProgress"
-                      ? 1
-                      : 2
-                  : session.status;
+              const statusNum = getStatusNumber(session.status);
 
               return (
                 <div
@@ -398,6 +431,22 @@ export function InventoryListPage() {
                           className="text-green-500 hover:text-green-400 flex items-center gap-1 text-sm bg-gray-900 px-2 py-1 rounded border border-gray-700"
                         >
                           <CheckCircle size={16} /> Finalizar
+                        </button>
+                      )}
+
+                      {statusNum === 2 && (
+                        <button
+                          onClick={(e) => handleDownloadCountsCsv(e, session)}
+                          disabled={downloadingSessionId === session.id}
+                          className="text-blue-400 hover:text-blue-300 flex items-center gap-1 text-sm bg-gray-900 px-2 py-1 rounded border border-gray-700 disabled:opacity-50"
+                          title="Baixar CSV de leituras"
+                        >
+                          {downloadingSessionId === session.id ? (
+                            <Loader2 size={16} className="animate-spin" />
+                          ) : (
+                            <Download size={16} />
+                          )}
+                          CSV
                         </button>
                       )}
 
