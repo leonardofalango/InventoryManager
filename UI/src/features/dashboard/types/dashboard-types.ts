@@ -29,6 +29,7 @@ export interface SectorData {
 export interface DiscrepancyItem {
   ean: string;
   description: string;
+  productLocations: string;
   expectedQuantity: number;
   countedQuantity: number;
   difference: number;
