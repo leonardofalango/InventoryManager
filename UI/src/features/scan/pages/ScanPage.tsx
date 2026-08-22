@@ -51,6 +51,8 @@ interface ScannedItem {
 }
 
 const offlineBatchSize = 50;
+const scannerInputIdleMs = 70;
+const scannerNewReadGapMs = 45;
 
 const formatScanTime = () =>
   new Date().toLocaleTimeString([], {
@@ -81,6 +83,9 @@ export function ScanPage() {
   const [showManualInput, setShowManualInput] = useState(false);
   const [isProcessingScan, setIsProcessingScan] = useState(false);
   const scanQueueRef = useRef<string[]>([]);
+  const isProcessingScanQueueRef = useRef(false);
+  const hiddenInputFlushTimeoutRef = useRef<number | null>(null);
+  const lastHiddenInputKeyAtRef = useRef<number | null>(null);
   const [isSyncingOffline, setIsSyncingOffline] = useState(false);
   const [offlineQueueCount, setOfflineQueueCount] = useState(0);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -329,13 +334,7 @@ export function ScanPage() {
         return;
       }
 
-      if (isProcessingScan) {
-        showFeedback("Aguarde a leitura atual terminar.", "info");
-        return;
-      }
-
-      setIsProcessingScan(true);
-      try {
+      {
         const qtyToSubmit = scanQuantity;
         const countedAt = new Date().toISOString();
         const clientCountId = createOfflineCountId();
@@ -418,8 +417,6 @@ export function ScanPage() {
           vibrate([300, 150, 300]);
           fetchActiveSession();
         }
-      } finally {
-        setIsProcessingScan(false);
       }
     },
     [
@@ -427,7 +424,6 @@ export function ScanPage() {
       addScannedItem,
       fetchActiveSession,
       isLocationLocked,
-      isProcessingScan,
       locationId,
       refreshOfflineQueueCount,
       scanQuantity,
@@ -436,9 +432,10 @@ export function ScanPage() {
   );
 
   const processQueuedBarcodes = useCallback(async () => {
-    if (isProcessingScan) return;
+    if (isProcessingScanQueueRef.current) return;
     if (scanQueueRef.current.length === 0) return;
 
+    isProcessingScanQueueRef.current = true;
     setIsProcessingScan(true);
     try {
       while (scanQueueRef.current.length > 0) {
@@ -446,13 +443,17 @@ export function ScanPage() {
         await processBarcode(nextCode);
       }
     } finally {
+      isProcessingScanQueueRef.current = false;
       setIsProcessingScan(false);
     }
-  }, [isProcessingScan, processBarcode]);
+  }, [processBarcode]);
 
   const enqueueBarcode = useCallback(
     async (code: string) => {
-      scanQueueRef.current.push(code.trim());
+      const cleanCode = code.trim();
+      if (!cleanCode) return;
+
+      scanQueueRef.current.push(cleanCode);
       await processQueuedBarcodes();
     },
     [processQueuedBarcodes],
@@ -536,14 +537,80 @@ export function ScanPage() {
     };
   }, [isCameraOpen, processMultiBarcodeInput, showFeedback]);
 
+  const clearHiddenInputFlushTimeout = useCallback(() => {
+    if (hiddenInputFlushTimeoutRef.current === null) return;
+
+    window.clearTimeout(hiddenInputFlushTimeoutRef.current);
+    hiddenInputFlushTimeoutRef.current = null;
+  }, []);
+
+  const flushHiddenInput = useCallback(
+    async (input: HTMLInputElement) => {
+      clearHiddenInputFlushTimeout();
+
+      const val = input.value;
+      input.value = "";
+      lastHiddenInputKeyAtRef.current = null;
+
+      if (!val.trim()) return;
+
+      await processMultiBarcodeInput(val);
+    },
+    [clearHiddenInputFlushTimeout, processMultiBarcodeInput],
+  );
+
+  const handleHiddenInputKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      const input = e.currentTarget;
+
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        void flushHiddenInput(input);
+        return;
+      }
+
+      if (e.key.length !== 1) return;
+
+      const now = performance.now();
+      const lastKeyAt = lastHiddenInputKeyAtRef.current;
+
+      if (
+        input.value.trim() &&
+        lastKeyAt !== null &&
+        now - lastKeyAt > scannerNewReadGapMs
+      ) {
+        void flushHiddenInput(input);
+      }
+
+      lastHiddenInputKeyAtRef.current = now;
+    },
+    [flushHiddenInput],
+  );
+
+  const scheduleHiddenInputFlush = useCallback(
+    (input: HTMLInputElement) => {
+      clearHiddenInputFlushTimeout();
+
+      if (!input.value.trim()) return;
+
+      hiddenInputFlushTimeoutRef.current = window.setTimeout(() => {
+        void flushHiddenInput(input);
+      }, scannerInputIdleMs);
+    },
+    [clearHiddenInputFlushTimeout, flushHiddenInput],
+  );
+
+  useEffect(
+    () => () => clearHiddenInputFlushTimeout(),
+    [clearHiddenInputFlushTimeout],
+  );
+
   const handleHiddenInput = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const input = e.currentTarget.elements.namedItem(
       "barcode",
     ) as HTMLInputElement;
-    const val = input.value;
-    input.value = "";
-    await processMultiBarcodeInput(val);
+    await flushHiddenInput(input);
   };
 
   if (isLoadingSession)
@@ -592,6 +659,8 @@ export function ScanPage() {
           type="text"
           autoComplete="off"
           inputMode="none"
+          onInput={(e) => scheduleHiddenInputFlush(e.currentTarget)}
+          onKeyDown={handleHiddenInputKeyDown}
         />
       </form>
 
